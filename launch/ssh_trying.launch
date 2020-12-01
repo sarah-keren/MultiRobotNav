@@ -1,0 +1,10 @@
+<launch>
+	<machine
+                name="remote1"
+                address="192.168.0.3"
+                env-loader="/opt/ros/kinetic/env_remote1.sh"
+                default="true"
+                user="remote_user1"
+        />
+        <node machine="remote1" pkg="turtlebot3_bringup" name="hello_doubles" type="turtlebot3_robot" />
+</launch>
