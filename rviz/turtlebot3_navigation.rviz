@@ -63,7 +63,7 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        base_footprint:
+        base_bartprint:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -235,7 +235,7 @@ Visualization Manager:
           Color: 0; 0; 0
           Enabled: true
           Name: Polygon
-          Topic: /move_base/local_costmap/footprint
+          Topic: /move_base/local_costmap/bartprint
           Unreliable: false
           Value: true
         - Alpha: 0.699999988
