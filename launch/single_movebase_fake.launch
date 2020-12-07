@@ -8,12 +8,12 @@
   <include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch" />
 
   <!-- Map server -->
-  <arg name="map_file" default="$(find MultiRobotNav)/config/map.yaml"/>
+  <arg name="map_file" default="$(find multi_robot_nav)/config/map.yaml"/>
   <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)">
   </node>
 
   <!-- AMCL -->
-  <include file="$(find MultiRobotNav)/launch/amcl_movebase.launch"/>
+  <include file="$(find multi_robot_nav)/launch/amcl_movebase.launch"/>
 
   <!-- move_base -->
   <arg name="cmd_vel_topic" default="/cmd_vel" />
@@ -21,12 +21,12 @@
   <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
     <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS" />
 
-    <rosparam file="$(find MultiRobotNav)/param/costmap_common_params_$(arg model).yaml" command="load" ns="global_costmap" />
-    <rosparam file="$(find MultiRobotNav)/param/costmap_common_params_$(arg model).yaml" command="load" ns="local_costmap" />
-    <rosparam file="$(find MultiRobotNav)/param/local_costmap_params.yaml" command="load" />
-    <rosparam file="$(find MultiRobotNav)/param/global_costmap_params.yaml" command="load" />
-    <rosparam file="$(find MultiRobotNav)/param/move_base_params.yaml" command="load" />
-    <rosparam file="$(find MultiRobotNav)/param/dwa_local_planner_params_$(arg model).yaml" command="load" />
+    <rosparam file="$(find multi_robot_nav)/param/costmap_common_params_$(arg model).yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find multi_robot_nav)/param/costmap_common_params_$(arg model).yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find multi_robot_nav)/param/local_costmap_params.yaml" command="load" />
+    <rosparam file="$(find multi_robot_nav)/param/global_costmap_params.yaml" command="load" />
+    <rosparam file="$(find multi_robot_nav)/param/move_base_params.yaml" command="load" />
+    <rosparam file="$(find multi_robot_nav)/param/dwa_local_planner_params_$(arg model).yaml" command="load" />
 
     <remap from="cmd_vel" to="$(arg cmd_vel_topic)"/>
     <remap from="odom" to="$(arg odom_topic)"/>
@@ -43,7 +43,7 @@
     <param name="publish_frequency" type="double" value="50.0" />
   </node> -->
 
-  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find MultiRobotNav)/config/myconfig.rviz"/>
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find multi_robot_nav)/config/myconfig.rviz"/>
 
 
   <!-- gazebo -->

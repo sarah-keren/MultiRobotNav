@@ -108,7 +108,7 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        base_footprint:
+        base_bartprint:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -152,7 +152,7 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        base_footprint:
+        base_bartprint:
           Value: true
         base_link:
           Value: true
@@ -180,7 +180,7 @@ Visualization Manager:
       Tree:
         map:
           odom:
-            base_footprint:
+            base_bartprint:
               base_link:
                 base_scan:
                   {}
@@ -349,7 +349,7 @@ Visualization Manager:
       Color: 25; 255; 0
       Enabled: true
       Name: Polygon
-      Topic: /move_base/global_costmap/footprint
+      Topic: /move_base/global_costmap/bartprint
       Unreliable: false
       Value: true
     - Alpha: 1
