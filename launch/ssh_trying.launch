@@ -1,7 +1,7 @@
 <launch>
 	<machine
                 name="remote1"
-                address="192.168.0.3"
+                address="192.168.0.6"
                 env-loader="/opt/ros/kinetic/env_remote1.sh"
                 default="true"
                 user="remote_user1"

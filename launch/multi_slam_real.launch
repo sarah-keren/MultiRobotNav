@@ -1,0 +1,54 @@
+<launch>
+  <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle]"/>
+  <arg name="first_tb3" default="stella_01"/>
+  <arg name="second_tb3" default="stella_02"/>
+  <arg name="third_tb3" default="tb3_2"/>
+
+  <!-- spawning and opening gmap for each robot -->
+  <!-- robot 1 -->
+  <group ns="$(arg first_tb3)">
+    
+    <!-- spawn -->
+    <param name="robot_description" command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
+
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen">
+      <param name="publish_frequency" type="double" value="50.0" />
+      <param name="tf_prefix" value="$(arg first_tb3)" />
+    </node>
+
+    <include file="$(find turtlebot3_slam)/launch/turtlebot3_gmapping.launch">
+	  <arg name="set_base_frame" value="$(arg first_tb3)/base_bartprint"/>
+	  <arg name="set_odom_frame" value="$(arg first_tb3)/odom"/>
+	  <arg name="set_map_frame" value="$(arg first_tb3)/map"/>
+    </include>
+    <node pkg="turtlebot3_teleop" name="$(arg first_tb3)_move" type="turtlebot3_teleop_key"/>
+  </group>
+	
+
+ <!-- robot 2 -->
+  <group ns="$(arg second_tb3)">
+     <!-- spawn -->
+     <param name="robot_description" command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
+
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen">
+      <param name="publish_frequency" type="double" value="50.0" />
+      <param name="tf_prefix" value="$(arg second_tb3)" />
+    </node>
+
+    
+	<include file="$(find turtlebot3_slam)/launch/turtlebot3_gmapping.launch">
+	  <arg name="set_base_frame" value="$(arg second_tb3)/base_bartprint"/>
+	  <arg name="set_odom_frame" value="$(arg second_tb3)/odom"/>
+	  <arg name="set_map_frame" value="$(arg second_tb3)/map"/>
+	</include>
+	<node pkg="turtlebot3_teleop" name="$(arg second_tb3)_move" type="turtlebot3_teleop_key"/>
+  </group>
+
+
+  <!-- robot 3 -->
+  <!-- <include file="$(find turtlebot3_gazebo)/launch/multi_map_merge.launch"/> -->
+
+  <node pkg="rviz" name="rviz_" type="rviz" args="-d $(find turtlebot3_gazebo)/rviz/multi_turtlebot3_slam.rviz"/>
+  <node pkg="map_server" type="map_saver" name="map_server_saver" args="-f ~/multi_map"/>
+  
+</launch>
