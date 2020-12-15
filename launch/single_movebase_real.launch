@@ -1,0 +1,8 @@
+<launch>
+  <!-- Arguments -->
+  <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
+  <include file="$(find multi_robot_nav)/launch/single_movebase_files/turtlebot3_navigation.launch">
+      <arg name="map_file" value="$(find multi_robot_nav)/maps/my_house.yaml"/>
+  </include>
+
+</launch>

@@ -46,7 +46,7 @@
 
 
   <!-- robot 3 -->
-  <include file="$(find multi_robot_nav)/launch/map_merge_real.launch"/>
+  <include file="$(find multi_robot_nav)/launch/multi_slamming_files/map_merge_real.launch"/>
 
   <node pkg="rviz" name="rviz_" type="rviz" args="-d $(find turtlebot3_gazebo)/rviz/multi_turtlebot3_slam.rviz"/>
   <!--<node pkg="map_server" type="map_saver" name="map_server_saver" args="-f ~/multi_map"/>-->
