@@ -1,0 +1,5 @@
+<launch>
+  <include file="$(find simple_navigation_goals)/launch/turtlebot3_navigation_multi.launch"/>
+  <include file="$(find simple_navigation_goals)/launch/turtlebot3_world_multi.launch"/>
+
+</launch>
