@@ -8,12 +8,12 @@
   <!-- move_base -->
   <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
     <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS" />
-    <rosparam file="$(find simple_navigation_goals)/param/costmap_common_params_$(arg model).yaml" command="load" ns="global_costmap" />
-    <rosparam file="$(find simple_navigation_goals)/param/costmap_common_params_$(arg model).yaml" command="load" ns="local_costmap" />
-    <rosparam file="$(find simple_navigation_goals)/param/local_costmap_params.yaml" command="load" />
-    <rosparam file="$(find simple_navigation_goals)/param/global_costmap_params.yaml" command="load" />
-    <rosparam file="$(find simple_navigation_goals)/param/move_base_params.yaml" command="load" />
-    <rosparam file="$(find simple_navigation_goals)/param/dwa_local_planner_params_$(arg model).yaml" command="load" />
+    <rosparam file="$(find multi_robot_nav)/param/costmap_common_params_$(arg model).yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find multi_robot_nav)/param/costmap_common_params_$(arg model).yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find multi_robot_nav)/param/local_costmap_params.yaml" command="load" />
+    <rosparam file="$(find multi_robot_nav)/param/global_costmap_params.yaml" command="load" />
+    <rosparam file="$(find multi_robot_nav)/param/move_base_params.yaml" command="load" />
+    <rosparam file="$(find multi_robot_nav)/param/dwa_local_planner_params_$(arg model).yaml" command="load" />
     <param name="global_costmap/robot_base_frame" value="/tb3_0/base_footprint"/>
     <param name="local_costmap/robot_base_frame" value="/tb3_0/base_footprint"/>
     <param name="local_costmap/global_frame" value="/tb3_0/odom"/>
