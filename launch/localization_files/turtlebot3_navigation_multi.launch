@@ -1,6 +1,7 @@
 <launch>
 
-  <!-- Arguments -->
+
+<!-- Arguments -->
   <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
   <arg name="map_file" default="$(find multi_robot_nav)/config/map.yaml"/>
   <arg name="open_rviz" default="true"/>
@@ -39,6 +40,7 @@
    </include>
   </group>
 
+
   <group ns = "$(arg second_tb3)">
    <param name="tf_prefix" value="$(arg second_tb3)"/>
 
@@ -63,4 +65,5 @@
           args="-d $(find multi_robot_nav)/rviz/turtlebot3_navigation_multi.rviz"/>
   </group>
 
+=
 </launch>
