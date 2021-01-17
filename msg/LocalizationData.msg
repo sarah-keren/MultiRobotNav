@@ -1,0 +1,4 @@
+Header header
+geometry_msgs/PoseWithCovariance pose
+float64 distance
+float64 yaw_angle

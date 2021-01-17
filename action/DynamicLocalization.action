@@ -1,0 +1,7 @@
+#goal definition
+---
+#result definition
+multi_robot_nav/LocalizationData data
+---
+#feedback
+string message

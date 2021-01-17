@@ -1,0 +1,8 @@
+#goal definition
+multi_robot_nav/LocalizationData data
+---
+#result definition
+geometry_msgs/PoseWithCovariance pose
+---
+#feedback
+int32 iteration
