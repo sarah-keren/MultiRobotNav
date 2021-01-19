@@ -2,6 +2,7 @@
 
 import rospy
 import actionlib
+import numpy as np
 
 from geometry_msgs.msg import PoseWithCovariance
 from nav_msgs.msg import OccupancyGrid
@@ -37,10 +38,22 @@ class DynamicLocalizationServer:
 
         self.feedback_msg.message = 'Acquired local and global maps'
         self._as.publish_feedback(self.feedback_msg)
-        # Extract points from local map
 
-
-        # Filter by global map
+        print("Extract points from local map")
+        self.local_points = np.array(self.local_map.data).reshape((self.local_map.width,self.local_map.height))
+        self.local_position = np.array([self.local_map.origin_x,self.local_map.origin_y])
+	
+        print("Filter by global map")
+        self.global_points = np.array(self.global_map.data).reshape((self.global_map.width,self.global_map.height))
+        self.global_position = np.array([self.global_map.origin_x,self.global_map.origin_y])
+        self.global_local_points_index = (self.local_position-self.global_position)/0.05
+        print("cutting the points we need")
+        self.global_points = self.global_points[global_local_points_index[0]:self.local_map.width,global_local_points_index[1],self.local_map.height]
+        mask=(self.global_points<90) & (self.local_points>90) #mask to capture the points, have false and True in
+        rows,cols=np.where(mask)
+        self.suspicus_points= self.global_points[mask] #the value of the points in global
+        self.coords=list(zip(rows,cols))
+        print(len(self.coords))
 
         # Clustering
 

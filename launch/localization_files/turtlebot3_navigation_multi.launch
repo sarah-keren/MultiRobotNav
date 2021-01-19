@@ -41,6 +41,7 @@
 
    <!-- Dynamic Action Server -->
    <node pkg="multi_robot_nav" name="dynamic_localization_server" type="dynamic_localization_server.py"/>
+   <node pkg="multi_robot_nav" name="dynamic_localization_client" type="dynamic_localization_client.py"/>
 
    <!-- Static Action Server -->
    <node pkg="multi_robot_nav" name="static_localization_server" type="static_localization_server.py"/>

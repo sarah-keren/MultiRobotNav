@@ -12,8 +12,9 @@ class DynamicLocalizationClient:
         self.client = actionlib.SimpleActionClient(self.action_name, DynamicLocalizationAction)
 
     def run_client(self):
+	print ("waiting for server")
         self.client.wait_for_server()
-
+	print("sending message")
         goal = DynamicLocalizationGoal()
 
         self.client.send_goal(goal)
