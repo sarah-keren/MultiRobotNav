@@ -4,7 +4,7 @@ import rospy
 import actionlib
 import numpy as np
 
-from geometry_msgs.msg import PoseWithCovariance
+from geometry_msgs.msg import PoseWithCovarianceStamped
 from nav_msgs.msg import OccupancyGrid
 from multi_robot_nav.msg import DynamicLocalizationResult, DynamicLocalizationFeedback, DynamicLocalizationAction
 from multi_robot_nav.msg import LocalizationData
@@ -33,38 +33,55 @@ class DynamicLocalizationServer:
 
 
     def exec_cb(self, goal):
-        self.dynamic_pose = rospy.wait_for_message('amcl_pose', PoseWithCovariance)
+        rospy.loginfo('Dynamic localization has started')
+        self.feedback_msg.message = 'Dynamic localization has started'
+        self._as.publish_feedback(self.feedback_msg)
+
+        self.dynamic_pose = rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
         self.get_maps()
 
         self.feedback_msg.message = 'Acquired local and global maps'
         self._as.publish_feedback(self.feedback_msg)
 
         print("Extract points from local map")
-        self.local_points = np.array(self.local_map.data).reshape((self.local_map.width,self.local_map.height))
-        self.local_position = np.array([self.local_map.origin_x,self.local_map.origin_y])
+        self.local_points = np.array(self.local_map.data).reshape(
+                                (self.local_map.info.width, self.local_map.info.height))
+        self.local_position = np.array([self.local_map.info.origin.position.x,                      
+                                        self.local_map.info.origin.position.y])
 	
         print("Filter by global map")
-        self.global_points = np.array(self.global_map.data).reshape((self.global_map.width,self.global_map.height))
-        self.global_position = np.array([self.global_map.origin_x,self.global_map.origin_y])
-        self.global_local_points_index = (self.local_position-self.global_position)/0.05
+        self.global_points = np.array(self.global_map.data).reshape(
+                                (self.global_map.info.width, self.global_map.info.height))
+        self.global_position = np.array([self.global_map.info.origin.position.x,
+                                         self.global_map.info.origin.position.y])
+        self.global_local_points_index = (self.local_position - self.global_position) / 0.05
+        global_to_local_x = int(self.global_local_points_index[0])
+        global_to_local_y = int(self.global_local_points_index[1])
+        
         print("cutting the points we need")
-        self.global_points = self.global_points[global_local_points_index[0]:self.local_map.width,global_local_points_index[1],self.local_map.height]
-        mask=(self.global_points<90) & (self.local_points>90) #mask to capture the points, have false and True in
-        rows,cols=np.where(mask)
-        self.suspicus_points= self.global_points[mask] #the value of the points in global
-        self.coords=list(zip(rows,cols))
-        print(len(self.coords))
+        self.global_points = self.global_points[global_to_local_x: global_to_local_x+self.local_map.info.width,                                                                                          global_to_local_y: global_to_local_y+self.local_map.info.height]
+
+        mask = (self.global_points<90) & (self.local_points>90)  # mask to capture the points, have false and True in
+        rows,cols = np.where(mask)
+        self.suspicus_points = self.global_points[mask]  # the value of the points in global
+        self.coords = list(zip(rows,cols))
+        rospy.loginfo(len(self.coords))
 
         # Clustering
 
         
-        # Fill in data
-        result = LocalizationData()
-        result.pose = self.dynamic_pose
+        
+        # Fill in default data
+        result = DynamicLocalizationResult()
+        result.data.pose = self.dynamic_pose
+        result.data.distance = 0.0
+        result.data.yaw_angle = 0.0
         
         # Publish and return result
         pub = rospy.Publisher('dynamic_localization_data', LocalizationData, queue_size=1)
-        pub.publish(result)
+        pub.publish(result.data)
+        
+        # Still has some issue with result
         self._as.set_succeeded(result)
         
 
