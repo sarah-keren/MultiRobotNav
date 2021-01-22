@@ -73,7 +73,7 @@ class DynamicLocalizationServer:
         
         # Fill in default data
         result = DynamicLocalizationResult()
-        result.data.pose = self.dynamic_pose
+        result.data.pose = self.dynamic_pose.pose
         result.data.distance = 0.0
         result.data.yaw_angle = 0.0
         
