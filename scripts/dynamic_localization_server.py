@@ -3,8 +3,9 @@
 import rospy
 import actionlib
 import numpy as np
+from scipy.spatial.distance import cdist
 
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance
 from nav_msgs.msg import OccupancyGrid
 from multi_robot_nav.msg import DynamicLocalizationResult, DynamicLocalizationFeedback, DynamicLocalizationAction
 from multi_robot_nav.msg import LocalizationData
@@ -44,8 +45,8 @@ class DynamicLocalizationServer:
         self._as.publish_feedback(self.feedback_msg)
 
         print("Extract points from local map")
-        self.local_points = np.array(self.local_map.data).reshape(
-                                (self.local_map.info.width, self.local_map.info.height))
+        self.local_points = np.transpose(np.array(self.local_map.data).reshape(
+                                (self.local_map.info.width, self.local_map.info.height)))
         self.local_position = np.array([self.local_map.info.origin.position.x,                      
                                         self.local_map.info.origin.position.y])
 	
@@ -58,30 +59,52 @@ class DynamicLocalizationServer:
         global_to_local_x = int(self.global_local_points_index[0])
         global_to_local_y = int(self.global_local_points_index[1])
         
-        print("cutting the points we need")
-        self.global_points = self.global_points[global_to_local_x: global_to_local_x+self.local_map.info.width,                                                                                          global_to_local_y: global_to_local_y+self.local_map.info.height]
+        self.summed_global_map = np.zeros_like(self.local_points)
 
-        mask = (self.global_points<90) & (self.local_points>90)  # mask to capture the points, have false and True in
+        radius=2
+        print("cutting the points we need")
+
+        for i,j in [(-radius+x,-radius+y)for x in range(2*radius) for y in range (2*radius)]:
+            self.global_points_crop = self.global_points[global_to_local_x+i: global_to_local_x+i+self.local_map.info.width,
+                                                         global_to_local_y+j: global_to_local_y+j+self.local_map.info.height]
+            self.summed_global_map += self.global_points_crop
+
+        mask = (self.local_points>99.0) & (self.summed_global_map > -1.0) & (self.summed_global_map < 90.0)  # mask to capture the points, have false and True in
         rows,cols = np.where(mask)
-        self.suspicus_points = self.global_points[mask]  # the value of the points in global
-        self.coords = list(zip(rows,cols))
+        self.suspicus_points = self.summed_global_map[mask]  # the value of the points in global
+
+        self.coords = np.array(zip(rows,cols))
+        rospy.loginfo('coords len')
         rospy.loginfo(len(self.coords))
 
         # Clustering
 
-        
-        
+        dist_mat = cdist(self.coords, self.coords, metric='euclidean')
+        dist_mat[dist_mat > 3] = 0.0  # Drop distances bigger than the robot's radius / map's resolution
+        cluster_row = np.argmax(np.count_nonzero(dist_mat, axis=0))
+        biggest_cluster_mat = self.coords[np.nonzero(dist_mat[cluster_row])]
+        biggest_cluster_mat = np.append(biggest_cluster_mat, [self.coords[cluster_row]], axis=0)
+        rospy.loginfo('Biggest cluster')
+        print(biggest_cluster_mat)
+
+        cluster_center = np.mean(biggest_cluster_mat, axis=0) * 0.05
+        static_point = self.local_position + cluster_center
+        rospy.loginfo('Static point')
+        print(static_point)
+
         # Fill in default data
         result = DynamicLocalizationResult()
         result.data.pose = self.dynamic_pose.pose
-        result.data.distance = 0.0
-        result.data.yaw_angle = 0.0
+
+        static_pose = PoseWithCovariance()
+        static_pose.pose.position.x = static_point[0]
+        static_pose.pose.position.y = static_point[1]
+        result.data.static_pose = static_pose
         
         # Publish and return result
-        pub = rospy.Publisher('dynamic_localization_data', LocalizationData, queue_size=1)
+        pub = rospy.Publisher('/dynamic_localization_data', LocalizationData, queue_size=1)
         pub.publish(result.data)
         
-        # Still has some issue with result
         self._as.set_succeeded(result)
         
 
