@@ -17,6 +17,7 @@ class DynamicLocalizationServer:
     def __init__(self, name):
         self.action_name = name
         self._as = actionlib.SimpleActionServer(self.action_name, DynamicLocalizationAction, execute_cb=self.exec_cb, auto_start=False)
+        self.pub = rospy.Publisher('/dynamic_localization_data', LocalizationData, queue_size=1)
         self.rate = rospy.Rate(10)
         self.dynamic_pose = None
         self.local_map = None
@@ -31,19 +32,8 @@ class DynamicLocalizationServer:
         rospy.wait_for_service('static_map')
         static_map = rospy.ServiceProxy('static_map', GetMap)
         self.global_map = static_map().map
-
-
-    def exec_cb(self, goal):
-        rospy.loginfo('Dynamic localization has started')
-        self.feedback_msg.message = 'Dynamic localization has started'
-        self._as.publish_feedback(self.feedback_msg)
-
-        self.dynamic_pose = rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
-        self.get_maps()
-
-        self.feedback_msg.message = 'Acquired local and global maps'
-        self._as.publish_feedback(self.feedback_msg)
-
+    
+    def extract_candidate_points(self):
         print("Extract points from local map")
         self.local_points = np.transpose(np.array(self.local_map.data).reshape(
                                 (self.local_map.info.width, self.local_map.info.height)))
@@ -77,8 +67,7 @@ class DynamicLocalizationServer:
         rospy.loginfo('coords len')
         rospy.loginfo(len(self.coords))
 
-        # Clustering
-
+    def get_cluster_center(self):
         dist_mat = cdist(self.coords, self.coords, metric='euclidean')
         dist_mat[dist_mat > 3] = 0.0  # Drop distances bigger than the robot's radius / map's resolution
         cluster_row = np.argmax(np.count_nonzero(dist_mat, axis=0))
@@ -87,12 +76,31 @@ class DynamicLocalizationServer:
         rospy.loginfo('Biggest cluster')
         print(biggest_cluster_mat)
 
-        cluster_center = np.mean(biggest_cluster_mat, axis=0) * 0.05
+        cluster_center = np.mean(biggest_cluster_mat, axis=0) * 0.05  # Back to "real world" coords
         static_point = self.local_position + cluster_center
         rospy.loginfo('Static point')
         print(static_point)
 
-        # Fill in default data
+        return static_point
+
+    def exec_cb(self, goal):
+        rospy.loginfo('Dynamic localization has started')
+        self.feedback_msg.message = 'Dynamic localization has started'
+        self._as.publish_feedback(self.feedback_msg)
+
+        self.dynamic_pose = rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
+        self.get_maps()
+
+        self.feedback_msg.message = 'Acquired local and global maps'
+        self._as.publish_feedback(self.feedback_msg)
+
+        self.extract_candidate_points()
+
+        # Clustering
+
+        static_point = self.get_cluster_center()
+
+        # Fill in data
         result = DynamicLocalizationResult()
         result.data.pose = self.dynamic_pose.pose
 
@@ -102,12 +110,9 @@ class DynamicLocalizationServer:
         result.data.static_pose = static_pose
         
         # Publish and return result
-        pub = rospy.Publisher('/dynamic_localization_data', LocalizationData, queue_size=1)
-        pub.publish(result.data)
-        
+        self.pub.publish(result.data)
         self._as.set_succeeded(result)
         
-
 
 if __name__ == '__main__':
     rospy.init_node('dynamic_localization_server')

@@ -1,6 +1,5 @@
 <launch>
 
-   <node pkg="multi_robot_nav" name="dynamic_localization_server" type="dynamic_localization_server.py" ns="/tb3_0" output="screen"/>
-   <node pkg="multi_robot_nav" name="dynamic_localization_client" type="dynamic_localization_client.py" ns="/tb3_0" />
+   <node pkg="multi_robot_nav" name="dynamic_localization_client" type="dynamic_localization_client.py" ns="/tb3_0" output="screen"/>
 
 </launch>

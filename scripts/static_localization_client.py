@@ -8,14 +8,15 @@ from multi_robot_nav.msg import StaticLocalizationGoal, StaticLocalizationAction
 class StaticLocalizationClient:
 
     def __init__(self, name):
-        self.action_name = name
-        self.client = actionlib.SimpleActionClient(self.action_name, StaticLocalizationAction)
+        self.action_server_name = name
+        self.client = actionlib.SimpleActionClient(self.action_server_name, StaticLocalizationAction)
 
     def run_client(self):
         self.client.wait_for_server()
 
         goal = StaticLocalizationGoal()
 
+        rospy.loginfo('Started Static Client')
         self.client.send_goal(goal)
 
         self.client.wait_for_result()
@@ -25,7 +26,7 @@ class StaticLocalizationClient:
 if __name__ == '__main__':
     try:
         rospy.init_node('static_localization_client')
-        client = StaticLocalizationClient(rospy.get_name())
+        client = StaticLocalizationClient('static_localization_server')
         result = client.run_client()
 
     except rospy.ROSInterruptException:

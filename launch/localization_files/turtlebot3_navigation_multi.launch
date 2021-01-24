@@ -40,7 +40,7 @@
    </include>
 
    <!-- Dynamic Action Server -->
-   <!-- <node pkg="multi_robot_nav" name="dynamic_localization_server" type="dynamic_localization_server.py" output="screen"/> -->
+   <node pkg="multi_robot_nav" name="dynamic_localization_server" type="dynamic_localization_server.py" output="screen"/>
 
    <!-- Static Action Server -->
    <node pkg="multi_robot_nav" name="static_localization_server" type="static_localization_server.py" output="screen"/>
@@ -66,7 +66,7 @@
    </include>
 
    <!-- Dynamic Action Server -->
-   <!-- <node pkg="multi_robot_nav" name="dynamic_localization_server" type="dynamic_localization_server.py" output="screen"/> -->
+   <node pkg="multi_robot_nav" name="dynamic_localization_server" type="dynamic_localization_server.py" output="screen"/>
    
    <!-- Static Action Server -->
    <node pkg="multi_robot_nav" name="static_localization_server" type="static_localization_server.py" output="screen"/>
