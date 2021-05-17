@@ -29,7 +29,8 @@ class PathMetrics:
         self.array_sample = random.sample(array_pose, self.k)
 
         self.get_map()
-        self.heat_map = np.zeros((self.global_map.info.width, self.global_map.info.height))
+        self.heat_map = np.zeros_like(self.global_map)
+        self.counter_along_path = []
         # self.numpize_response()
 	
     def get_metrics_to_goal(self,goal_location):
@@ -63,6 +64,7 @@ class PathMetrics:
         
         self.get_size_variance_metric(size_array)
         self.get_heatmap_analysis()
+        self.get_localization_along_path_analysis()
 	
     def single_plan_analysis(self, start, goal, show=False):
         get_plan_srv = self.ns + 'move_base/make_plan'
@@ -80,7 +82,10 @@ class PathMetrics:
         
         size_metric = len(steps_array)
         
-        self.fill_single_path_heatmap(steps_array)
+        grid_indices = self.reduce_poses_resolution(steps_array)
+        
+        self.heat_map[grid_indices] += 1
+        self.counter_along_path.append(self.get_localization_along_path(grid_indices))
 
         return size_metric
     
@@ -92,7 +97,7 @@ class PathMetrics:
         rospy.loginfo('Variance: {}'.format(var))
         rospy.loginfo('Mean: {}'.format(mean))
     
-    def fill_single_path_heatmap(self, steps_array):
+    def reduce_poses_resolution(self, steps_array):
         xy_array = np.empty((len(steps_array), 2))
 
         for i, pose in enumerate(steps_array):
@@ -103,7 +108,7 @@ class PathMetrics:
         grid_poses = xy_array - self.global_origin
         grid_indices = (grid_poses / 0.05).astype(np.int)
 
-        self.heat_map[grid_indices] += 1
+        return grid_indices
     
     def get_heatmap_analysis(self):
         var = np.var(self.heat_map)
@@ -115,15 +120,34 @@ class PathMetrics:
         self.local_map = rospy.wait_for_message(self.ns + 'move_base/local_costmap/costmap', OccupancyGrid)
         
         rospy.wait_for_service(self.ns + 'static_map')
-        static_map = rospy.ServiceProxy(self.ns + 'static_map', GetMap)
-        self.global_map = static_map().map
+        static_map_srv = rospy.ServiceProxy(self.ns + 'static_map', GetMap)
+        static_map = static_map_srv().map
+        self.global_map = np.array(static_map.data).reshape(
+                                (static_map.info.width, static_map.info.height))
 
-        self.global_origin = np.array([self.global_map.info.origin.position.x,
-                                       self.global_map.info.origin.position.y])
+        self.global_origin = np.array([static_map.info.origin.position.x,
+                                       static_map.info.origin.position.y])
+    
+    def get_localization_along_path(self, grid_indices):
+        counter = 0
 
-    # def numpize_response(self):
-        # GetPlan._response_class = rospy.numpy_msg.numpy_msg(GetPlanResponse)
-        # GetPlanResponse = rospy.numpy_msg.numpy_msg(GetPlanResponse)
+        steps = 10
+        radius = 10
+        obstacle_threshold = 0.5
+
+        for i in range(0, len(grid_indices), steps):
+            x, y = grid_indices[i]
+            map_in_radius = np.array(self.global_map[x-radius: x+radius, y-radius: y+radius])
+            counter += np.count_nonzero(map_in_radius > obstacle_threshold)
+        
+        return counter
+    
+    def get_localization_along_path_analysis(self):
+        mean = np.mean(self.counter_along_path)
+
+        rospy.loginfo('Result of Localization Along Path metric:')
+        rospy.loginfo('Mean: {}'.format(mean))
+
 
 if __name__ == '__main__':
     rospy.init_node('path_length_metric')
