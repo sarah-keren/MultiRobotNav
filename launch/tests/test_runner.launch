@@ -1,0 +1,8 @@
+<launch>
+	            <include file="$(find multi_robot_nav)/launch/tests/test_world.launch">
+	                <arg name="real_x" value="-2.1"/>
+	                <arg name="real_y" value="0.35"/>
+	                <arg name="fake_x" value="-0.8700300648971075"/>
+	                <arg name="fake_y" value="0.8852677926346927"/>
+	            </include>
+        </launch>

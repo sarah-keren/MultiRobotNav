@@ -31,11 +31,14 @@
   </node>
 
    <!-- AMCL -->
-   <include file="$(find multi_robot_nav)/launch/localization_files/amcl_tb3_0.launch"/>
+   <include file="$(find multi_robot_nav)/launch/localization_files/amcl_tb3_multi.launch">
+   <arg name="namespace" value="$(arg first_tb3)"/>
+   </include>
 
    <!-- Move base -->
-   <include file="$(find multi_robot_nav)/launch/localization_files/move_base_tb3_0.launch">
+   <include file="$(find multi_robot_nav)/launch/localization_files/move_base_multi.launch">
     <arg name="model" value="$(arg model)" />
+    <arg name="tb3_namespace" value="$(arg first_tb3)"/>
     <arg name="move_forward_only" value="$(arg move_forward_only)"/>
    </include>
 
@@ -57,12 +60,15 @@
    </node>
 
    <!-- AMCL -->
-   <include file="$(find multi_robot_nav)/launch/localization_files/amcl_tb3_1.launch"/>
+   <include file="$(find multi_robot_nav)/launch/localization_files/amcl_tb3_multi.launch">
+   <arg name="namespace" value="$(arg second_tb3)"/>
+   </include>
 
    <!-- Move base -->
-   <include file="$(find multi_robot_nav)/launch/localization_files/move_base_tb3_1.launch">
+   <include file="$(find multi_robot_nav)/launch/localization_files/move_base_multi.launch">
     <arg name="model" value="$(arg model)" />
     <arg name="move_forward_only" value="$(arg move_forward_only)"/>
+    <arg name="tb3_namespace" value="$(arg second_tb3)"/>
    </include>
 
    <!-- Dynamic Action Server -->
@@ -70,7 +76,6 @@
    
    <!-- Static Action Server -->
    <node pkg="multi_robot_nav" name="static_localization_server" type="static_localization_server.py" output="screen"/>
-
   </group>
 
   <!-- rviz -->

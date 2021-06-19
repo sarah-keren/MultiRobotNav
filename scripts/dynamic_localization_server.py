@@ -51,7 +51,7 @@ class DynamicLocalizationServer:
         
         self.summed_global_map = np.zeros_like(self.local_points)
 
-        radius=2
+        radius = 2
         print("cutting the points we need")
 
         for i,j in [(-radius+x,-radius+y)for x in range(2*radius) for y in range (2*radius)]:

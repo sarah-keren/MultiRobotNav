@@ -6,8 +6,53 @@
 
   <include file="$(find simple_navigation_goals)/launch/turtlebot3_navigation_multi.launch"/>
 -->
+  
+  <arg name="fake_x_1" default=" -1.2"/>
+  <arg name="fake_y_1" default=" 0.0"/>
+  <arg name="fake_z_1" default=" 0.0"/>
+  <arg name="fake_yaw_1"   default=" 0.0"/>
 
-  <include file="$(find multi_robot_nav)/launch/localization_files/turtlebot3_navigation_multi.launch"/>
-  <include file="$(find multi_robot_nav)/launch/localization_files/turtlebot3_world_multi.launch"/>
+  <arg name="fake_x_2" default=" 1.2"/>
+  <arg name="fake_y_2" default=" 0.0"/>
+  <arg name="fake_z_2" default=" 0.0"/>
+  <arg name="fake_yaw_2"   default=" 0.0"/>
+
+
+  <arg name="real_x_1" default=" -1.5"/>
+  <arg name="real_y_1" default=" 0.0"/>
+  <arg name="real_z_1" default=" 0.0"/>
+  <arg name="real_yaw_1"   default=" 0.0"/>
+
+  <arg name="real_x_2" default=" 1.5"/>
+  <arg name="real_y_2" default=" 0.0"/>
+  <arg name="real_z_2" default=" 0.0"/>
+  <arg name="real_yaw_2"   default=" 0.0"/>
+
+
+  <include file="$(find multi_robot_nav)/launch/localization_files/turtlebot3_navigation_multi.launch">
+  
+    <arg name="first_tb3_x_pos" value="$(arg fake_x_1)"/>
+    <arg name="first_tb3_y_pos" value="$(arg fake_y_1)"/>
+    <arg name="first_tb3_z_pos" value="$(arg fake_z_1)"/>
+    <arg name="first_tb3_yaw"   value="$(arg fake_yaw_1)"/>
+
+    <arg name="second_tb3_x_pos" value="$(arg fake_x_2)"/>
+    <arg name="second_tb3_y_pos" value="$(arg fake_y_2)"/>
+    <arg name="second_tb3_z_pos" value="$(arg fake_z_2)"/>
+    <arg name="second_tb3_yaw"   value="$(arg fake_yaw_2)"/>
+  </include>
+  <include file="$(find multi_robot_nav)/launch/localization_files/turtlebot3_world_multi.launch">
+  
+  <arg name="first_tb3_x_pos" value="$(arg real_x_1)"/>
+  <arg name="first_tb3_y_pos" value="$(arg real_y_1)"/>
+  <arg name="first_tb3_z_pos" value="$(arg real_z_1)"/>
+  <arg name="first_tb3_yaw"   value="$(arg real_yaw_1)"/>
+
+  <arg name="second_tb3_x_pos" value="$(arg real_x_2)"/>
+  <arg name="second_tb3_y_pos" value="$(arg real_y_2)"/>
+  <arg name="second_tb3_z_pos" value="$(arg real_z_2)"/>
+  <arg name="second_tb3_yaw"   value="$(arg real_yaw_2)"/>
+ 
+  </include>
 
 </launch>

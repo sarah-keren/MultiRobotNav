@@ -151,6 +151,10 @@ class PathMetrics:
 
 if __name__ == '__main__':
     rospy.init_node('path_length_metric')
+    print("first robot")
     path_metrics = PathMetrics(ns='/tb3_0/', k=100)
 
+    path_metrics.get_metrics_to_goal((1,2))
+    print("second robot")
+    path_metrics = PathMetrics(ns='/tb3_1/', k=100)
     path_metrics.get_metrics_to_goal((1,2))
