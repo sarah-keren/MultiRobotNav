@@ -6,10 +6,10 @@ import random
 import actionlib
 
 from geometry_msgs.msg import PoseStamped,PoseArray
-from nav_msgs.srv import GetPlan, GetPlanResponse
+from std_msgs.msg import Header
 from rospy.numpy_msg import numpy_msg
-from nav_msgs.msg import OccupancyGrid
-from nav_msgs.srv import GetMap
+from nav_msgs.msg import OccupancyGrid, MapMetaData
+from nav_msgs.srv import GetMap, GetPlan, GetPlanResponse
 
 class PathMetrics:
     
@@ -18,6 +18,7 @@ class PathMetrics:
         self.k = k
         self.global_origin = None
         self.global_map = None
+        self.global_meta_data = None
         rospy.loginfo('Started Metric calculation, with sample size {0} and in ns {1}'.format(k, ns))
 
         pf_topic = self.ns + 'particlecloud'
@@ -84,7 +85,8 @@ class PathMetrics:
         
         grid_indices = self.reduce_poses_resolution(steps_array)
         
-        self.heat_map[grid_indices] += 1
+        self.heat_map[grid_indices[:, 1], grid_indices[:, 0]] += 1
+
         self.counter_along_path.append(self.get_localization_along_path(grid_indices))
 
         return size_metric
@@ -104,17 +106,34 @@ class PathMetrics:
             position = pose.pose.position
             xy_array[i, 0] = position.x
             xy_array[i, 1] = position.y
-
+        
         grid_poses = xy_array - self.global_origin
         grid_indices = (grid_poses / 0.05).astype(np.int)
 
         return grid_indices
     
     def get_heatmap_analysis(self):
+        pub = rospy.Publisher(self.ns + 'heatmap', OccupancyGrid, queue_size=1)
+        
+        oc_grid = OccupancyGrid()
+        oc_grid.data = self.heat_map.flatten()
+        oc_grid.info = self.global_meta_data
+
+        while(pub.get_num_connections() < 1):
+            rospy.sleep(1)
+
+        pub.publish(oc_grid)
+
+        mean = np.mean(self.heat_map)
         var = np.var(self.heat_map)
+        non_zero_count = np.count_nonzero(self.heat_map)
 
         rospy.loginfo('Result of Path Heatmap metric:')
         rospy.loginfo('Variance: {}'.format(var))
+        rospy.loginfo('Mean: {}'.format(mean))
+        rospy.loginfo('Non-zero %: {}'.format(
+            non_zero_count / float(self.heat_map.shape[0]*self.heat_map.shape[1])
+            ))
     
     def get_map(self):
         self.local_map = rospy.wait_for_message(self.ns + 'move_base/local_costmap/costmap', OccupancyGrid)
@@ -127,6 +146,7 @@ class PathMetrics:
 
         self.global_origin = np.array([static_map.info.origin.position.x,
                                        static_map.info.origin.position.y])
+        self.global_meta_data = static_map.info
     
     def get_localization_along_path(self, grid_indices):
         counter = 0
