@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 import roslaunch
 import rospy
+import rospkg
 import numpy as np
 from path_metrics import *
 import random
@@ -31,11 +32,14 @@ def read_pgm(address):
 def running_single():
     uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
     roslaunch.configure_logging(uuid)
+    
+    rospack = rospkg.RosPack()
+    pkg_dir = rospack.get_path('multi_robot_nav')
 
-    launch = roslaunch.parent.ROSLaunchParent(uuid, ["/home/user/multiNav_ws/src/multi_robot_nav/launch/tests/test_runner.launch"])
+    launch = roslaunch.parent.ROSLaunchParent(uuid, [pkg_dir + "/launch/tests/test_runner.launch"])
     launch.start()
     return launch
-    # cli_args = ['/home/user/multiNav_ws/src/multi_robot_nav/launch/localization_world.launch',\
+    # cli_args = [pkg_dir + '/launch/localization_world.launch',\
     # 'fake_x_1:='+str(fake_1[0]),'fake_y_1:='+str(fake_1[1]), 'real_x_1:='+str(real_1[0]),'real_y_1:='+str(real_1[1]),\
     # 'fake_x_2:='+str(fake_2[0]),'fake_y_2:='+str(fake_2[1]), 'real_x_2:='+str(real_2[0]),'real_y_2:='+str(real_2[1]),]
 
@@ -66,7 +70,7 @@ def running_single():
     # #print(tupleItem)
     # print("%s"%tupleItem)
     #launch = roslaunch.parent.ROSLaunchParent(uuid,[tupleItem])
-    #launch = roslaunch.parent.ROSLaunchParent(uuid, ["/home/user/multiNav_ws/src/multi_robot_nav/launch/localization_world.launch"])
+    #launch = roslaunch.parent.ROSLaunchParent(uuid, ["pkg_dir + /launch/localization_world.launch"])
     
 
     #    rospy.loginfo("started")
@@ -77,7 +81,10 @@ def running_single():
 
   
 def create_test_launch(real,fake):
-    name='/home/user/multiNav_ws/src/multi_robot_nav/launch/tests/test_runner.launch'
+    rospack = rospkg.RosPack()
+    pkg_dir = rospack.get_path('multi_robot_nav')
+
+    name = pkg_dir + '/launch/tests/test_runner.launch'
     with open(name,'w') as file:
         file.write(\
         "<launch>\n\t\
@@ -131,8 +138,12 @@ def goalTargetMaking(goal):
     return goalTarget
 
 def running_on_map():
-    rospy.init_node('move_base_sequence')    
-    map_array,width,height=read_pgm("/home/user/multiNav_ws/src/multi_robot_nav/maps/map.pgm")
+    rospy.init_node('move_base_sequence')
+
+    rospack = rospkg.RosPack()
+    pkg_dir = rospack.get_path('multi_robot_nav')
+
+    map_array,width,height=read_pgm(pkg_dir + "/maps/map.pgm")
     print((width,height))
     print(np.unique(np.array(map_array)))
 
