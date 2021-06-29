@@ -171,7 +171,7 @@ def running_on_map():
                 set_real_position(goal)
             else:
                 path_metrics = PathMetrics(ns='/', k=100)
-                path_metrics.get_metrics_to_goal(goal)
+                print(path_metrics.get_metrics_to_goal(goal))
             print("sending to goal")
             client.send_goal(goalTarget)
             print("waiting to reach")

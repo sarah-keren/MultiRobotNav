@@ -63,9 +63,10 @@ class PathMetrics:
             start.pose.position.y = item[1]
             size_array[i] = self.single_plan_analysis(start,goal)
         
-        self.get_size_variance_metric(size_array)
-        self.get_heatmap_analysis()
-        self.get_localization_along_path_analysis()
+        result1 = self.get_size_variance_metric(size_array)
+        result2 = self.get_heatmap_analysis()
+        result3 = self.get_localization_along_path_analysis()
+        return result1, result2, result3
 	
     def single_plan_analysis(self, start, goal, show=False):
         get_plan_srv = self.ns + 'move_base/make_plan'
@@ -98,6 +99,7 @@ class PathMetrics:
         rospy.loginfo('Result of Path size metric:')
         rospy.loginfo('Variance: {}'.format(var))
         rospy.loginfo('Mean: {}'.format(mean))
+        return var,mean
     
     def reduce_poses_resolution(self, steps_array):
         xy_array = np.empty((len(steps_array), 2))
@@ -127,13 +129,13 @@ class PathMetrics:
         mean = np.mean(self.heat_map)
         var = np.var(self.heat_map)
         non_zero_count = np.count_nonzero(self.heat_map)
+        non_zero_percent = non_zero_count / float(self.heat_map.shape[0]*self.heat_map.shape[1])
 
         rospy.loginfo('Result of Path Heatmap metric:')
         rospy.loginfo('Variance: {}'.format(var))
         rospy.loginfo('Mean: {}'.format(mean))
-        rospy.loginfo('Non-zero %: {}'.format(
-            non_zero_count / float(self.heat_map.shape[0]*self.heat_map.shape[1])
-            ))
+        rospy.loginfo('Non-zero %: {}'.format(non_zero_percent))
+        return mean,var,non_zero_count,non_zero_percent
     
     def get_map(self):
         self.local_map = rospy.wait_for_message(self.ns + 'move_base/local_costmap/costmap', OccupancyGrid)
@@ -167,6 +169,7 @@ class PathMetrics:
 
         rospy.loginfo('Result of Localization Along Path metric:')
         rospy.loginfo('Mean: {}'.format(mean))
+        return mean
 
 
 if __name__ == '__main__':
