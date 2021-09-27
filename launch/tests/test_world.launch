@@ -5,12 +5,13 @@
     <arg name="real_y" default="2.0"/>
     <arg name="fake_x" default="1.2"/>
     <arg name="fake_y" default="2"/>
+    <arg name="world_location" default="$(find turtlebot3_gazebo)/worlds/turtlebot3_world.world"/>
+    <arg name="map_file" default="$(find multi_robot_nav)/config/map.yaml"/>
 
   <!-- Turtlebot3 -->
   <include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch" />
 
   <!-- Map server -->
-  <arg name="map_file" default="$(find multi_robot_nav)/config/map.yaml"/>
   <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)">
   </node>
 
@@ -48,7 +49,7 @@
 
   <!-- Gazebo -->
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
-    <arg name="world_name" value="$(find turtlebot3_gazebo)/worlds/turtlebot3_world.world"/>
+    <arg name="world_name" value="$(arg world_location)"/>
     <arg name="paused" value="false"/>
     <arg name="use_sim_time" value="true"/>
     <arg name="gui" value="true"/>

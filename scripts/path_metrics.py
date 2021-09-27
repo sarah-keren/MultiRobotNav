@@ -13,12 +13,13 @@ from nav_msgs.srv import GetMap, GetPlan, GetPlanResponse
 
 class PathMetrics:
     
-    def __init__(self, ns='/', k=100):
+    def __init__(self, ns='/', k=100,real_start=None):
         self.ns = ns
         self.k = k
         self.global_origin = None
         self.global_map = None
         self.global_meta_data = None
+        self.real_start = real_start
         rospy.loginfo('Started Metric calculation, with sample size {0} and in ns {1}'.format(k, ns))
 
         pf_topic = self.ns + 'particlecloud'
@@ -41,18 +42,7 @@ class PathMetrics:
         goal.header.stamp = rospy.Time(0)
         goal.pose.position.x = goal_location[0] 
         goal.pose.position.y = goal_location[1]  
-        size_array=np.zeros(self.k)
-        
-        # start = PoseStamped()
-        # start.header.seq = 0
-        # start.header.frame_id = self.ns + 'map'
-        # start.header.stamp = rospy.Time(0)
-        # start.pose.position.x = 0.5
-        # start.pose.position.y = -2
-
-        # real_size = self.single_plan_analysis(start,goal)
-        # rospy.loginfo('Size of path from real start point: {}'.format(real_size))
-        
+        size_array=np.zeros(self.k)        
         
         for i, item in enumerate(self.array_sample):
             start = PoseStamped()
@@ -63,10 +53,29 @@ class PathMetrics:
             start.pose.position.y = item[1]
             size_array[i] = self.single_plan_analysis(start,goal)
         
+        result0 = None
+        if self.real_start is not None:
+            real_start = PoseStamped()
+            real_start.header.seq = 0
+            real_start.header.frame_id = self.ns + 'map'
+            real_start.header.stamp = rospy.Time(0)
+            real_start.pose.position.x = self.real_start[0] 
+            real_start.pose.position.y = self.real_start[1]
+
+            get_plan_srv = self.ns + 'move_base/make_plan'
+            get_plan = rospy.ServiceProxy(get_plan_srv, GetPlan)
+            
+            req = GetPlan()
+            req.start = start
+            req.goal = goal
+            req.tolerance = .5
+            resp = get_plan(req.start, req.goal, req.tolerance)
+            result0 = len(resp.plan.poses)
+
         result1 = self.get_size_variance_metric(size_array)
         result2 = self.get_heatmap_analysis()
         result3 = self.get_localization_along_path_analysis()
-        return result1, result2, result3
+        return result0, result1, result2, result3
 	
     def single_plan_analysis(self, start, goal, show=False):
         get_plan_srv = self.ns + 'move_base/make_plan'
@@ -135,7 +144,7 @@ class PathMetrics:
         rospy.loginfo('Variance: {}'.format(var))
         rospy.loginfo('Mean: {}'.format(mean))
         rospy.loginfo('Non-zero %: {}'.format(non_zero_percent))
-        return mean,var,non_zero_count,non_zero_percent
+        return var,mean,non_zero_count,non_zero_percent
     
     def get_map(self):
         self.local_map = rospy.wait_for_message(self.ns + 'move_base/local_costmap/costmap', OccupancyGrid)
