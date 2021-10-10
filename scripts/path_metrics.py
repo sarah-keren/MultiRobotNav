@@ -124,16 +124,16 @@ class PathMetrics:
         return grid_indices
     
     def get_heatmap_analysis(self):
-        pub = rospy.Publisher(self.ns + 'heatmap', OccupancyGrid, queue_size=1)
+        #pub = rospy.Publisher(self.ns + 'heatmap', OccupancyGrid, queue_size=1)
         
-        oc_grid = OccupancyGrid()
-        oc_grid.data = self.heat_map.flatten()
-        oc_grid.info = self.global_meta_data
+        #oc_grid = OccupancyGrid()
+        #oc_grid.data = self.heat_map.flatten()
+        #oc_grid.info = self.global_meta_data
 
-        while(pub.get_num_connections() < 1):
-            rospy.sleep(1)
+        #while(pub.get_num_connections() < 1):
+        #    rospy.sleep(1)
 
-        pub.publish(oc_grid)
+        #pub.publish(oc_grid)
 
         mean = np.mean(self.heat_map)
         var = np.var(self.heat_map)
@@ -144,7 +144,7 @@ class PathMetrics:
         rospy.loginfo('Variance: {}'.format(var))
         rospy.loginfo('Mean: {}'.format(mean))
         rospy.loginfo('Non-zero %: {}'.format(non_zero_percent))
-        return var,mean,non_zero_count,non_zero_percent
+        return var, mean, non_zero_count, non_zero_percent
     
     def get_map(self):
         self.local_map = rospy.wait_for_message(self.ns + 'move_base/local_costmap/costmap', OccupancyGrid)

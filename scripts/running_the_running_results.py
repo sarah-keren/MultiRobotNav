@@ -10,6 +10,7 @@ world_dict = {
     'willow': ("worlds/willowgarage.world", "/home/user/multiNav_ws/src/chris-worlds/maps/willow_map.yaml"),
     'lab': ("/home/user/multiNav_ws/src/chris-worlds/worlds/lab_world_050.world", "/home/user/multiNav_ws/src/chris-worlds/maps/lab_world_050.yaml"),
     'house': ("/home/user/multiNav_ws/src/multi_robot_nav/worlds/turtlebot3_house.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/house_map.yaml")}
+
 def running():
     if len(sys.argv)>1:
         name=sys.argv[1]
