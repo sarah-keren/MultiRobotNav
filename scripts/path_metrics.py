@@ -13,10 +13,11 @@ from nav_msgs.srv import GetMap, GetPlan, GetPlanResponse
 
 class PathMetrics:
     
-    def __init__(self, ns='/', k=100,real_start=None):
+    def __init__(self, ns='/', k=100,real_start=None,global_origin=None,resolution=None):
         self.ns = ns
         self.k = k
-        self.global_origin = None
+        self.global_origin = global_origin
+        self.resolution = resolution
         self.global_map = None
         self.global_meta_data = None
         self.real_start = real_start
@@ -93,9 +94,12 @@ class PathMetrics:
         
         size_metric = len(steps_array)
         
-        grid_indices = self.reduce_poses_resolution(steps_array)
+        grid_indices = self.reduce_poses_resolution(steps_array,len(self.heat_map[0]),len(self.heat_map))
+
+        x_index = grid_indices[:, 0]
+        y_index = grid_indices[:, 1]
         
-        self.heat_map[grid_indices[:, 1], grid_indices[:, 0]] += 1
+        self.heat_map[y_index, x_index] += 1
 
         self.counter_along_path.append(self.get_localization_along_path(grid_indices))
 
@@ -110,19 +114,26 @@ class PathMetrics:
         rospy.loginfo('Mean: {}'.format(mean))
         return var,mean
     
-    def reduce_poses_resolution(self, steps_array):
+    def reduce_poses_resolution(self, steps_array,width,height):
         xy_array = np.empty((len(steps_array), 2))
-
+        index_to_get=[]
         for i, pose in enumerate(steps_array):
             position = pose.pose.position
             xy_array[i, 0] = position.x
             xy_array[i, 1] = position.y
+            if self.global_origin[0]<position.x<(self.global_origin[0]+width*self.resolution) and\
+                self.global_origin[1]<position.y<(self.global_origin[1]+height*self.resolution):
+                index_to_get.append(i)
         
-        grid_poses = xy_array - self.global_origin
-        grid_indices = (grid_poses / 0.05).astype(np.int)
+        final_array=np.empty((len(index_to_get), 2))
+        for i,pose in enumerate(index_to_get):
+            final_array[i,0] = xy_array[pose,0]
+            final_array[i,1] = xy_array[pose,1]
 
+        grid_poses = final_array - self.global_origin
+        grid_indices = (grid_poses / self.resolution).astype(np.int)
         return grid_indices
-    
+        
     def get_heatmap_analysis(self):
         #pub = rospy.Publisher(self.ns + 'heatmap', OccupancyGrid, queue_size=1)
         
@@ -155,8 +166,8 @@ class PathMetrics:
         self.global_map = np.array(static_map.data).reshape(
                                 (static_map.info.width, static_map.info.height))
 
-        self.global_origin = np.array([static_map.info.origin.position.x,
-                                       static_map.info.origin.position.y])
+        #self.global_origin = np.array([static_map.info.origin.position.x,
+        #                               static_map.info.origin.position.y])
         self.global_meta_data = static_map.info
     
     def get_localization_along_path(self, grid_indices):
