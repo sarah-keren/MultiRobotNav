@@ -107,11 +107,11 @@ def create_dataPoints():
         dataPoints=dataPoints.append({'real':real,'fake':fake,'goal':goal},ignore_index=True)
     dataPoints.to_csv('Results/'+name+'_data_points.csv',index=False)
 
-def update_picked(name):
+def update_picked(name,experiment):
     dataPoints = pd.read_csv('Results/'+name+'_data_points.csv')
     dataPoints['picked'] = False
-    if not os.path.exists("Results/" + name + '_results' + str(1 + 1) + '.csv'): return dataPoints
-    results = pd.read_csv("Results/" + name + '_results' + str(1 + 1) + '.csv')
+    if not os.path.exists("Results/" + name + '_results' + str(experiment + 1) + '.csv'): return dataPoints
+    results = pd.read_csv("Results/" + name + '_results' + str(experiment + 1) + '.csv')
     found=0
     for index,row in results.iterrows():
         for index2,row2 in dataPoints.iterrows():
@@ -130,18 +130,19 @@ def running():
         print("running on map: "+name)
         time.sleep(2)
     else: name='creech'
+    experiment=0
     data = pd.read_csv('Results/'+name+'_data_points.csv')
     map_array,map_options = read_pgm(world_dict[name][1])
-    data=update_picked(name)
+    data=update_picked(name,experiment)
     for index, row in data.sample(100).iterrows():
         print("running the running number: "+str(index))
         if 'picked' in data.columns and row['picked']: continue
         print(str(row['real']),str(row['fake']),str(row['goal']))
-        p = subprocess.Popen(['python', 'running_results.py','1',name,world_dict[name][0],world_dict[name][1],str(row['real']),str(row['fake']),str(row['goal'])])
-        time.sleep(310)
-        p.terminate()
+        p = subprocess.Popen(['python', 'running_results.py',str(experiment),name,world_dict[name][0],world_dict[name][1],str(row['real']),str(row['fake']),str(row['goal'])])
+        p.wait()
+        #p.terminate()
         print("killing core if there")
-        killcore=subprocess.Popen(['killall', '-9' ,'roscore'])
+        killcore=subprocess.Popen(['killall', '-9' ,'rosmaster'])
         time.sleep(10)
         data.loc[index,'picked']=True
         data.to_csv('Results/'+name+'_data_points.csv',index=False)
