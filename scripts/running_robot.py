@@ -62,28 +62,27 @@ def running_single():
     rospack = rospkg.RosPack()
     pkg_dir = rospack.get_path('multi_robot_nav')
 
-    launch = roslaunch.parent.ROSLaunchParent(uuid, [pkg_dir + "/launch/tests/test_runner.launch"])
+    launch = roslaunch.parent.ROSLaunchParent(uuid, [pkg_dir + "/launch/tests/test_robot_run.launch"])
     return launch
   
-def create_test_launch(real, fake, world_path=None, map_path=None):
-
-    if world_path is None:
-        world_path="$(find turtlebot3_gazebo)/worlds/turtlebot3_world.world"
+def create_test_launch(real, fake, map_path=None):
+    #print((real,fake,map_path))
+    if map_path is None:
+        #world_path="$(find turtlebot3_gazebo)/worlds/turtlebot3_world.world"
         map_path="$(find multi_robot_nav)/config/map.yaml"
     rospack = rospkg.RosPack()
     pkg_dir = rospack.get_path('multi_robot_nav')
 
-    name = pkg_dir + '/launch/tests/test_runner.launch'
+    name = pkg_dir + '/launch/tests/test_robot_run.launch'
     with open(name,'w') as file:
-        file.write(\
+        file.write(
         "<launch>\n\t\
-            <include file=\"$(find multi_robot_nav)/launch/tests/test_world.launch\">\n\t\
-                <arg name=\"real_x\" value=\""+str(real[0])+"\"/>\n\t\
-                <arg name=\"real_y\" value=\""+str(real[1])+"\"/>\n\t\
-                <arg name=\"fake_x\" value=\""+str(fake[0])+"\"/>\n\t\
-                <arg name=\"fake_y\" value=\""+str(fake[1])+"\"/>\n\t\
-                <arg name=\"world_location\" value=\""+str(world_path)+"\"/>\n\t\
-                <arg name=\"map_file\" value=\""+str(map_path)+"\"/>\n\t\
+            <include file=\"$(find multi_robot_nav)/launch/tests/test_move_base_real.launch\">\n\t\
+                <arg name=\"real_x\" value=\"" + str(real[0]) + "\"/>\n\t\
+                <arg name=\"real_y\" value=\"" + str(real[1]) + "\"/>\n\t\
+                <arg name=\"fake_x\" value=\"" + str(fake[0]) + "\"/>\n\t\
+                <arg name=\"fake_y\" value=\"" + str(fake[1]) + "\"/>\n\t\
+                <arg name=\"map_file\" value=\"" + str(map_path) + "\"/>\n\t\
             </include>\n\
         </launch>")
 
@@ -115,17 +114,18 @@ def goalTargetMaking(goal):
     goalTarget.target_pose.pose.orientation.w = 1.0
     return goalTarget
 
+def get_fake_point(real,base_radius=1):
+    radius = random.random() + base_radius
+    theta = (2 * np.pi) * random.random()
+    fake_x, fake_y = radius * np.cos(theta) + real[0], radius * np.sin(theta) + real[1]
+    return fake_x,fake_y
 
-
-def running_expirement(expirement=None,start=None,fake=None,end=None, world_path=None, map_path=None,map_options=None):
+def running_expirement(expirement=None,start=None,fake=None,end=None, map_path=None,map_options=None):
 
     row={}
     ending_string="without_oracle" if expirement == 1 else "oracle"
-    create_test_launch(start, fake if expirement==1 else start, world_path, map_path)
-
-    core = subprocess.Popen(['roscore'])
-    print("starting Core")
-    time.sleep(20)
+    #print((expirement,start,fake,end,map_path))
+    create_test_launch(start, fake if expirement==1 else start, map_path)
 
     rospy.init_node('move_base_sequence')
             
@@ -181,24 +181,25 @@ def running_expirement(expirement=None,start=None,fake=None,end=None, world_path
     row['calculation_time_' + ending_string]  = calculation_time - start_time 
             
     launch.shutdown()
-    print("killing Launch")
+    print("killing Launch - finished " + ending_string)
     time.sleep(10)
-    core.terminate()
-    print('finished '+ ending_string)
-    time.sleep(15)
+    #core.terminate()
+    #time.sleep(15)
     return row
 
-def running_on_map(world_name='turtlebot3_world',world_path=None,map_path=None,experiment=0,real=None,fake=None,goal=None):
+def running_on_map(world_name='turtlebot3_world',map_path=None,experiment=0,real=None,fake=None,goal=None,radius=1):
 
     #rospack = rospkg.RosPack()
     #pkg_dir = rospack.get_path('multi_robot_nav')
     #if map_path is None:
     #    map_array,map_options = read_pgm(pkg_dir + "/maps/map.pgm")
     #else:
-    real=tuple([float(x) for x in real[1:-1].split(',')])
-    fake=tuple([float(x) for x in fake[1:-1].split(',')])
-    goal=tuple([float(x) for x in goal[1:-1].split(',')])
-
+    #print((world_name,map_path,experiment,real,fake,goal,radius))
+    if real is not None: real = tuple([float(x) for x in real.split(',')])
+    if fake is not None: fake = tuple([float(x) for x in fake.split(',')])
+    else: fake = get_fake_point(real, radius)
+    if goal is not None: goal = tuple([float(x) for x in goal.split(',')])
+    #print(fake)
     map_array,map_options = read_pgm(map_path)
     #print((map_options['width'],map_options['height']))
     #print(np.unique(np.array(map_array)))
@@ -216,18 +217,15 @@ def running_on_map(world_name='turtlebot3_world',world_path=None,map_path=None,e
     row['goal_location'] = goal  
 
 
-    row.update(running_expirement(experiment,real,fake,goal, world_path, map_path,map_options))
+    row.update(running_expirement(experiment,real,fake,goal, map_path,map_options))
 
     results = results.append(row, ignore_index=True)
     results.to_csv("Results/" + world_name + '_results' + str(experiment + 1) + '.csv', index=False)
 
 if __name__ == '__main__':
+    #print(sys.argv)
     if len(sys.argv)<5:
-        print()
+        print("need all the data points, give me in that order: experiment(0/1 = orcale/fake location), map_location, real point (without spaces), goal point, and radius of fake (optinal)")
     else:
-        running_on_map(experiment=int(sys.argv[1]),world_name=sys.argv[2],world_path=sys.argv[3],\
-            map_path=sys.argv[4],real=sys.argv[5],fake=sys.argv[6],goal=sys.argv[7])
-# create_test_launch((1.5,3),(2.1,4))
-# uuid=roslaunch.rlutil.get_or_generate_uuid(None, False)
-# roslaunch.configure_logging(uuid)
-# running_single(uuid)
+        running_on_map(experiment=int(sys.argv[1]),world_name="real_robot",\
+            map_path=sys.argv[2],real=sys.argv[3],goal=sys.argv[4],radius=float(sys.argv[5]))
