@@ -17,8 +17,8 @@
 
   <!-- AMCL -->
   <include file="$(find multi_robot_nav)/launch/single_movebase_files/amcl.launch">
-  <arg name="initial_pose_x" value="$(arg fake_x)"/>
-  <arg name="initial_pose_y" value="$(arg fake_y)"/>
+    <arg name="initial_pose_x" value="$(arg fake_x)"/>
+    <arg name="initial_pose_y" value="$(arg fake_y)"/>
   </include>
 
   <!-- move_base -->

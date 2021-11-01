@@ -1,0 +1,9 @@
+<launch>
+	            <include file="$(find multi_robot_nav)/launch/tests/test_move_base_real.launch">
+	                <arg name="real_x" value="0.5"/>
+	                <arg name="real_y" value="0.5"/>
+	                <arg name="fake_x" value="-1.3628323457564775"/>
+	                <arg name="fake_y" value="0.6015355577977677"/>
+	                <arg name="map_file" value="/home/user/multiNav_ws/src/multi_robot_nav/config/map.yaml"/>
+	            </include>
+        </launch>
