@@ -1,10 +1,10 @@
 <launch>
 	            <include file="$(find multi_robot_nav)/launch/tests/test_world.launch">
-	                <arg name="real_x" value="9.4"/>
-	                <arg name="real_y" value="23.9"/>
-	                <arg name="fake_x" value="9.4"/>
-	                <arg name="fake_y" value="23.9"/>
-	                <arg name="world_location" value="worlds/willowgarage.world"/>
-	                <arg name="map_file" value="/home/user/multiNav_ws/src/chris-worlds/maps/willow_map.yaml"/>
+	                <arg name="real_x" value="-2.027"/>
+	                <arg name="real_y" value="0.098"/>
+	                <arg name="fake_x" value="-3.30002311068"/>
+	                <arg name="fake_y" value="0.425331307609"/>
+	                <arg name="world_location" value="/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_part2_boxes.world"/>
+	                <arg name="map_file" value="/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_part2_boxes.yaml"/>
 	            </include>
         </launch>

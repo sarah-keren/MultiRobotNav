@@ -150,9 +150,22 @@ def running_expirement(expirement=None,start=None,fake=None,end=None, world_path
         row['metric-1'] = metric1[0]
         row['metric-2'] = metric2[0]
         row['metric-3'] = metric3
-        
+    
+    started_pose = rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
+    
+    cov_matrix=np.array(started_pose.pose.covariance).reshape(6,6)
+    print(cov_matrix)
+    row['init_covariance'] = [cov_matrix[0][0],cov_matrix[0][1],cov_matrix[1][0],cov_matrix[1][1],cov_matrix[5][5]]
     print("Waiting to start experiment.")
-    time.sleep(10)
+
+    if(False):
+        launch.shutdown()
+        print("killing Launch")
+        time.sleep(10)
+        core.terminate()
+
+        return row
+    time.sleep(2)
     start_time = time.time()
     print("sending to goal")
     client.send_goal(goalTargetMaking(end))
@@ -179,6 +192,10 @@ def running_expirement(expirement=None,start=None,fake=None,end=None, world_path
     #row['did_it_really_arrived_' + ending_string] = str(True if np.linalg.norm(np.array(location) - np.array(goal)) < 0.6 else False)
     row['execute_time_' + ending_string]  = end_time - calculation_time
     row['calculation_time_' + ending_string]  = calculation_time - start_time 
+    finish_pose = rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
+    cov_matrix=np.array(finish_pose.pose.covariance).reshape(6,6)
+    print(cov_matrix)
+    row['finish_covariance' + ending_string] = [cov_matrix[0][0],cov_matrix[0][1],cov_matrix[1][0],cov_matrix[1][1],cov_matrix[5][5]]
             
     launch.shutdown()
     print("killing Launch")
@@ -203,8 +220,8 @@ def running_on_map(world_name='turtlebot3_world',world_path=None,map_path=None,e
     #print((map_options['width'],map_options['height']))
     #print(np.unique(np.array(map_array)))
     
-    results = pd.read_csv("Results/" + world_name + '_results' + str(experiment + 1) + '.csv')\
-         if exists("Results/" + world_name + '_results' + str(experiment + 1) + '.csv')\
+    results = pd.read_csv("Results/" + world_name + '_cov_results' + str(experiment + 1) + '.csv')\
+         if exists("Results/" + world_name + '_cov_results' + str(experiment + 1) + '.csv')\
          else pd.DataFrame()
  
     row={}
@@ -219,7 +236,7 @@ def running_on_map(world_name='turtlebot3_world',world_path=None,map_path=None,e
     row.update(running_expirement(experiment,real,fake,goal, world_path, map_path,map_options))
 
     results = results.append(row, ignore_index=True)
-    results.to_csv("Results/" + world_name + '_results' + str(experiment + 1) + '.csv', index=False)
+    results.to_csv("Results/" + world_name + '_cov_results' + str(experiment + 1) + '.csv', index=False)
 
 if __name__ == '__main__':
     if len(sys.argv)<5:

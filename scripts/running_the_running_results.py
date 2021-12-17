@@ -96,22 +96,31 @@ world_dict = {
     #'corridor' : ('$(find chirs-worlds)/worlds/corridor.world','$(find chirs-worlds)/worlds/corridor.world'),
     'creech': ("/home/user/multiNav_ws/src/chris-worlds/worlds/creech_map.world","/home/user/multiNav_ws/src/chris-worlds/maps/creech_map.world"),
     'maze': ("/home/user/multiNav_ws/src/chris-worlds/worlds/maze.world", "/home/user/multiNav_ws/src/chris-worlds/maps/chris_maze.yaml"),
-    'office': ("worlds/willowgarage.world", "/home/user/multiNav_ws/src/chris-worlds/maps/willow_map.yaml"),
-    'lab': ("/home/user/multiNav_ws/src/chris-worlds/worlds/lab_world_050.world", "/home/user/multiNav_ws/src/chris-worlds/maps/lab_world_050.yaml"),
+    'office': ("worlds/willowgarage.world", "/home/user/multiNav_ws/src/chris-worlds/maps/Office.yaml"),
+    'lab': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_complete.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_complete.yaml"),
+    'lab_boxLess': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_boxesLess.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_boxesLess.yaml"),
+    'lab_frontLess': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_frontLess.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_frontLess.yaml"),
+    'lab_sideLess': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_sideLess.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_sideLess.yaml"),
+    'lab_side2Less': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_side2Less.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_side2Less.yaml"),
+    'lab_wallLess': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_wallLess.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_wallLess.yaml"),
+    'lab_partBoxes': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_part_boxes.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_part_boxes.yaml"),
+    'lab_part2Boxes': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_part2_boxes.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_part2_boxes.yaml"),
     'house': ("/home/user/multiNav_ws/src/multi_robot_nav/worlds/turtlebot3_house.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/house_map.yaml")}
 
-def create_dataPoints():
+def create_dataPoints(name,map_array,map_options):
+    if 'lab' in name: return
+    if os.path.exists('Results/' + name + '_data_points.csv'): return
     dataPoints = DataFrame()
     for i in range(100):
         real, fake, goal = get_points(map_array, map_options)
         dataPoints=dataPoints.append({'real':real,'fake':fake,'goal':goal},ignore_index=True)
-    dataPoints.to_csv('Results/'+name+'_data_points.csv',index=False)
+    dataPoints.to_csv('Results/' + name + '_data_points.csv',index=False)
+    print("finish creating new data points")
 
-def update_picked(name,experiment):
-    dataPoints = pd.read_csv('Results/'+name+'_data_points.csv')
+def update_picked(dataPoints,name,experiment):
     dataPoints['picked'] = False
-    if not os.path.exists("Results/" + name + '_results' + str(experiment + 1) + '.csv'): return dataPoints
-    results = pd.read_csv("Results/" + name + '_results' + str(experiment + 1) + '.csv')
+    if not os.path.exists("Results/" + name + '_cov_results' + str(experiment + 1) + '.csv'): return dataPoints
+    results = pd.read_csv("Results/" + name + '_cov_results' + str(experiment + 1) + '.csv')
     found=0
     for index,row in results.iterrows():
         for index2,row2 in dataPoints.iterrows():
@@ -130,10 +139,17 @@ def running():
         print("running on map: "+name)
         time.sleep(2)
     else: name='creech'
-    experiment=0
-    data = pd.read_csv('Results/'+name+'_data_points.csv')
-    map_array,map_options = read_pgm(world_dict[name][1])
-    data=update_picked(name,experiment)
+    if len(sys.argv)>=3:
+        experiment=int(sys.argv[2])
+    else: experiment=1
+    map_array, map_options = read_pgm(world_dict[name][1])
+    create_dataPoints(name,map_array,map_options)
+    if 'lab' in name:
+        data = pd.read_csv('Results/lab_data_points.csv')
+    else:
+        data = pd.read_csv('Results/'+name+'_data_points.csv')
+    
+    data = update_picked(data, name, experiment)
     for index, row in data.sample(100).iterrows():
         print("running the running number: "+str(index))
         if 'picked' in data.columns and row['picked']: continue
