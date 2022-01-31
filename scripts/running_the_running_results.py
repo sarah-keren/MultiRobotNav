@@ -10,7 +10,6 @@ import random
 import numpy as np
 import os
 
-
 def read_pgm(address):
     address = address.split('.')[0]+'.pgm'
     pgmf = open(address,'rb')
@@ -90,14 +89,12 @@ def get_points(map_array, map_options):
 
     return (real_x, real_y), (fake_x, fake_y), (goal_x, goal_y)
 
-
-
 world_dict = {
     #'corridor' : ('$(find chirs-worlds)/worlds/corridor.world','$(find chirs-worlds)/worlds/corridor.world'),
     'creech': ("/home/user/multiNav_ws/src/chris-worlds/worlds/creech_map.world","/home/user/multiNav_ws/src/chris-worlds/maps/creech_map.world"),
     'maze': ("/home/user/multiNav_ws/src/chris-worlds/worlds/maze.world", "/home/user/multiNav_ws/src/chris-worlds/maps/chris_maze.yaml"),
     'office': ("worlds/willowgarage.world", "/home/user/multiNav_ws/src/chris-worlds/maps/Office.yaml"),
-    'lab': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_complete.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_complete.yaml"),
+    'lab': ("/home/user/multiNav_ws/src/chris-worlds/maps/lab_complete.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_complete.yaml"),
     'lab_boxLess': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_boxesLess.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_boxesLess.yaml"),
     'lab_frontLess': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_frontLess.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_frontLess.yaml"),
     'lab_sideLess': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_sideLess.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_sideLess.yaml"),
@@ -117,17 +114,32 @@ def create_dataPoints(name,map_array,map_options):
     dataPoints.to_csv('Results/' + name + '_data_points.csv',index=False)
     print("finish creating new data points")
 
+def from_path_str_to_position_list(text):
+    try_text=text[1:-1]
+    try_text=try_text.split("position:")[1:]
+    for i in range(len(try_text)):
+        try_text[i] = try_text[i].split('orientation:')[0]
+        try_text[i] = (float(try_text[i].split('x:')[1].split('y:')[0]), float(try_text[i].split('y:')[1].split('z:')[0]))
+    return try_text
+
 def update_picked(dataPoints,name,experiment):
-    dataPoints['picked'] = False
-    if not os.path.exists("Results/" + name + '_cov_results' + str(experiment + 1) + '.csv'): return dataPoints
-    results = pd.read_csv("Results/" + name + '_cov_results' + str(experiment + 1) + '.csv')
+    for i in range(10):
+        dataPoints['picked_'+str(i)] = False
+    if not os.path.exists("Results/" + name + '_newMetrics_'+str(experiment+1)+'.csv'): return dataPoints
+    results = pd.read_csv("Results/" + name + '_newMetrics_'+str(experiment+1)+'.csv')
     found=0
+    print(len(results))
     for index,row in results.iterrows():
+        if type(row['started_plan'])==str and 'position' in row['started_plan']:
+            results.iloc[index,'started_plan'] = from_path_str_to_position_list(row['started_plan'])
         for index2,row2 in dataPoints.iterrows():
-            if row2['real'] == row['real_location'] and row2['goal'] == row['goal_location']:
-                dataPoints.loc[index2,'picked']=True
-                found += 1
-    dataPoints.to_csv('Results/'+name+'_data_points.csv',index=False)
+            if row2['real_location'] == row['real_location'] and row2['goal_location'] == row['goal_location']:
+                for i in range(10):
+                    if row2['ps_location_'+str(i)][1:-1] == row['fake_location']:
+                        dataPoints.loc[index2,'picked_'+str(i)] = True
+                        found += 1
+    #results.to_csv("Results/" + name + '_newMetrics_'+str(experiment+1)+'.csv',index=False)
+    dataPoints.to_csv('Results/'+name+'_ps_locations.csv',index=False)
     print(str(found)+" updated")
     return dataPoints
     
@@ -135,31 +147,32 @@ def running():
     if len(sys.argv)>1:
         name=sys.argv[1]
         if name not in world_dict:
-            name = 'creech'
+            name = 'lab'
         print("running on map: "+name)
         time.sleep(2)
-    else: name='creech'
-    if len(sys.argv)>=3:
-        experiment=int(sys.argv[2])
+    else: name='lab'
+    if len(sys.argv)>=3: experiment=int(sys.argv[2])
     else: experiment=1
     map_array, map_options = read_pgm(world_dict[name][1])
-    create_dataPoints(name,map_array,map_options)
-    if 'lab' in name:
-        data = pd.read_csv('Results/lab_data_points.csv')
-    else:
-        data = pd.read_csv('Results/'+name+'_data_points.csv')
+    #create_dataPoints(name,map_array,map_options)
+
+    data = pd.read_csv('Results/'+name+'_ps_locations.csv')
     
     data = update_picked(data, name, experiment)
-    for index, row in data.sample(100).iterrows():
-        print("running the running number: "+str(index))
-        if 'picked' in data.columns and row['picked']: continue
-        print(str(row['real']),str(row['fake']),str(row['goal']))
-        p = subprocess.Popen(['python', 'running_results.py',str(experiment),name,world_dict[name][0],world_dict[name][1],str(row['real']),str(row['fake']),str(row['goal'])])
-        p.wait()
-        #p.terminate()
-        print("killing core if there")
-        killcore=subprocess.Popen(['killall', '-9' ,'rosmaster'])
-        time.sleep(10)
-        data.loc[index,'picked']=True
-        data.to_csv('Results/'+name+'_data_points.csv',index=False)
+    #for index, row in data.sample(100).iterrows():
+    for index, row in data.head(10).iterrows():
+        for j in range(10):
+            real,goal,fake=row['real_location'],row['goal_location'],row['ps_location_'+str(j)][1:-1]
+            print((real,goal,fake))
+            print("running the running number: "+str(index*10+j+1))
+            if 'picked_'+str(j) in data.columns and row['picked_'+str(j)]: continue
+            p = subprocess.Popen(['python', 'running_results.py',str(experiment),name,\
+                world_dict[name][0],world_dict[name][1],str(real),str(fake),str(goal)])
+            p.wait()
+            #p.terminate()
+            print("killing core if there")
+            killcore = subprocess.Popen(['killall', '-9' ,'rosmaster'])
+            time.sleep(4)
+            data.loc[index,'picked_'+str(j)]=True
+            data.to_csv('Results/'+name+'_ps_locations.csv',index=False)
 running()

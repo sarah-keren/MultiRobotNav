@@ -10,6 +10,9 @@ from os.path import exists
 import sys
 import subprocess
 
+import threading
+import Queue
+
 import yaml
 from yaml import SafeLoader
 
@@ -18,9 +21,10 @@ import actionlib
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from actionlib_msgs.msg import GoalStatus
 from geometry_msgs.msg import Pose, Point, Quaternion
-from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance,PoseArray
 from nav_msgs.msg import Odometry, Path
 from tf.transformations import quaternion_from_euler
+from nav_msgs.srv import GetMap, GetPlan
 
 
 def read_pgm(address):
@@ -106,6 +110,33 @@ def get_robot_location():
     position = odom_msg.pose.pose.position
     return position.x,position.y
 
+def get_plan(start_tuple,end_tuple):
+
+    startPoseStamp = PoseStamped()
+    startPoseStamp.header.seq = 0
+    startPoseStamp.header.frame_id = '/map'
+    startPoseStamp.header.stamp = rospy.Time(0)
+    startPoseStamp.pose.position.x = start_tuple[0] 
+    startPoseStamp.pose.position.y = start_tuple[1]
+    
+    endPoseStamp = PoseStamped()
+    endPoseStamp.header.seq = 0
+    endPoseStamp.header.frame_id = '/map'
+    endPoseStamp.header.stamp = rospy.Time(0)
+    endPoseStamp.pose.position.x = end_tuple[0] 
+    endPoseStamp.pose.position.y = end_tuple[1]
+            
+    get_plan_srv = '/move_base/make_plan'
+    get_plan = rospy.ServiceProxy(get_plan_srv, GetPlan)
+            
+    req = GetPlan()
+    req.start = startPoseStamp
+    req.goal = endPoseStamp
+    req.tolerance = .5
+    resp = get_plan(req.start, req.goal, req.tolerance)
+    #print(resp)
+    return resp.plan.poses
+
 def goalTargetMaking(goal):
     goalTarget = MoveBaseGoal()
     goalTarget.target_pose.header.frame_id = "map"
@@ -115,9 +146,24 @@ def goalTargetMaking(goal):
     goalTarget.target_pose.pose.orientation.w = 1.0
     return goalTarget
 
+def get_location_of_particle_system():
+    pf_topic = 'particlecloud'
+    msg = rospy.wait_for_message(pf_topic, PoseArray)
+    possible_poses_array = msg.poses
 
+    array_pose = [(item.position.x,item.position.y) for item in possible_poses_array]
+    array_sample = random.sample(array_pose, 20)
+    return array_sample
 
-def running_expirement(expirement=None,start=None,fake=None,end=None, world_path=None, map_path=None,map_options=None):
+def from_path_str_to_position_list(text):
+    try_text=text[1:-1]
+    try_text=try_text.split("position:")[1:]
+    for i in range(len(try_text)):
+        try_text[i] = try_text[i].split('orientation:')[0]
+        try_text[i] = (float(try_text[i].split('x:')[1].split('y:')[0]), float(try_text[i].split('y:')[1].split('z:')[0]))
+    return try_text
+
+def running_expirement(expirement=None,start=None,fake=None,end=None,world_name=None, world_path=None, map_path=None,map_options=None):
 
     row={}
     ending_string="without_oracle" if expirement == 1 else "oracle"
@@ -132,12 +178,42 @@ def running_expirement(expirement=None,start=None,fake=None,end=None, world_path
     print("running launch")
     launch = running_single()
     launch.start()
-    time.sleep(10)
+    time.sleep(5)
         
     print("making goal")
-       
+
+    counter_replan=[None]
+    def thread_counting_replan(counter_replan):
+        counter = 0
+        while True:
+            try:
+                rospy.wait_for_message('/move_base/DWAPlannerROS/global_plan',Path,15)
+                print("got replan")
+                counter += .5
+            except:
+                break
+        counter_replan[0] = counter
+        return counter
+
     client = actionlib.SimpleActionClient('move_base',MoveBaseAction)
-    client.wait_for_server(rospy.Duration(10))
+    client.wait_for_server(rospy.Duration(5))
+    que = Queue.Queue()
+    counting_thread=threading.Thread(target=lambda q, arg1: q.put(thread_counting_replan(arg1)),args=(que,counter_replan))
+
+    #ps_locations = get_location_of_particle_system()
+    #data_ps_location = pd.read_csv("Results/"+world_name+"_newMetrics.csv")\
+    #     if exists("Results/"+world_name+"_newMetrics.csv")\
+    #     else pd.DataFrame()
+    row={'real_location':start,'goal_location':end}
+    #for index, point in enumerate(ps_locations):
+    #    row['ps_location_'+str(index)] = str([point])
+    #data_ps_location=data_ps_location.append(row, ignore_index=True)
+    #data_ps_location.to_csv("Results/"+world_name+"_ps_locations.csv", index=False)
+    #launch.shutdown()
+    #print("killing Launch")
+    #time.sleep(2)
+    #core.terminate()
+    #return {}
         
     if expirement == 0:
         print("setting position")
@@ -145,26 +221,24 @@ def running_expirement(expirement=None,start=None,fake=None,end=None, world_path
     else:
         path_metrics = PathMetrics(ns='/', k=150,real_start=start,\
                             global_origin=map_options['origin'],resolution=map_options['resolution'])
-        metric0, metric1, metric2, metric3 = path_metrics.get_metrics_to_goal(end)
+        metric0, metric1, metric2, metric3, metric4 = path_metrics.get_metrics_to_goal(end)
         row['metric-0'] = metric0
         row['metric-1'] = metric1[0]
         row['metric-2'] = metric2[0]
         row['metric-3'] = metric3
+        row['metric-4_percent'] = metric4[0]
+        row['metric-4_mean'] = metric4[1]
+        row['metric-4_overall_plans'] = metric4[2]
     
     started_pose = rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
     
     cov_matrix=np.array(started_pose.pose.covariance).reshape(6,6)
     print(cov_matrix)
     row['init_covariance'] = [cov_matrix[0][0],cov_matrix[0][1],cov_matrix[1][0],cov_matrix[1][1],cov_matrix[5][5]]
+    row['started_plan'] = from_path_str_to_position_list(str(get_plan(start if expirement == 0 else fake,end)).replace('\n',' '))
     print("Waiting to start experiment.")
+    counting_thread.start()
 
-    if(False):
-        launch.shutdown()
-        print("killing Launch")
-        time.sleep(10)
-        core.terminate()
-
-        return row
     time.sleep(2)
     start_time = time.time()
     print("sending to goal")
@@ -196,6 +270,9 @@ def running_expirement(expirement=None,start=None,fake=None,end=None, world_path
     cov_matrix=np.array(finish_pose.pose.covariance).reshape(6,6)
     print(cov_matrix)
     row['finish_covariance' + ending_string] = [cov_matrix[0][0],cov_matrix[0][1],cov_matrix[1][0],cov_matrix[1][1],cov_matrix[5][5]]
+    counter_replan=que.get()
+    print(counter_replan)
+    row['number_of_replans'] = counter_replan
             
     launch.shutdown()
     print("killing Launch")
@@ -220,8 +297,8 @@ def running_on_map(world_name='turtlebot3_world',world_path=None,map_path=None,e
     #print((map_options['width'],map_options['height']))
     #print(np.unique(np.array(map_array)))
     
-    results = pd.read_csv("Results/" + world_name + '_cov_results' + str(experiment + 1) + '.csv')\
-         if exists("Results/" + world_name + '_cov_results' + str(experiment + 1) + '.csv')\
+    results = pd.read_csv("Results/" + world_name + '_newMetrics_' + str(experiment + 1) + '.csv')\
+         if exists("Results/" + world_name + '_newMetrics_' + str(experiment + 1) + '.csv')\
          else pd.DataFrame()
  
     row={}
@@ -232,11 +309,11 @@ def running_on_map(world_name='turtlebot3_world',world_path=None,map_path=None,e
     row['fake_location'] = fake
     row['goal_location'] = goal  
 
-
-    row.update(running_expirement(experiment,real,fake,goal, world_path, map_path,map_options))
+    row_expirement=running_expirement(experiment,real,fake,goal,world_name, world_path, map_path,map_options)
+    row.update(row_expirement)
 
     results = results.append(row, ignore_index=True)
-    results.to_csv("Results/" + world_name + '_cov_results' + str(experiment + 1) + '.csv', index=False)
+    results.to_csv("Results/" + world_name + '_newMetrics_' + str(experiment + 1) + '.csv', index=False)
 
 if __name__ == '__main__':
     if len(sys.argv)<5:
