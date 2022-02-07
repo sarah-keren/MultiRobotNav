@@ -123,23 +123,23 @@ def from_path_str_to_position_list(text):
     return try_text
 
 def update_picked(dataPoints,name,experiment):
-    for i in range(10):
-        dataPoints['picked_'+str(i)] = False
+    #for i in range(10):
+    dataPoints['picked'] = False
     if not os.path.exists("Results/" + name + '_newMetrics_'+str(experiment+1)+'.csv'): return dataPoints
     results = pd.read_csv("Results/" + name + '_newMetrics_'+str(experiment+1)+'.csv')
     found=0
     print(len(results))
     for index,row in results.iterrows():
-        if type(row['started_plan'])==str and 'position' in row['started_plan']:
-            results.iloc[index,'started_plan'] = from_path_str_to_position_list(row['started_plan'])
+        #if 'started_plan' in row.columns and type(row['started_plan'])==str and 'position' in row['started_plan']:
+        #    results.iloc[index,'started_plan'] = from_path_str_to_position_list(row['started_plan'])
         for index2,row2 in dataPoints.iterrows():
-            if row2['real_location'] == row['real_location'] and row2['goal_location'] == row['goal_location']:
-                for i in range(10):
-                    if row2['ps_location_'+str(i)][1:-1] == row['fake_location']:
-                        dataPoints.loc[index2,'picked_'+str(i)] = True
+        #    if row2['real_location'] == row['real_location'] and row2['goal_location'] == row['goal_location']:
+        #        for i in range(10):
+                    if row2['fake'] == row['fake_location']:
+                        dataPoints.loc[index2,'picked'] = True
                         found += 1
     #results.to_csv("Results/" + name + '_newMetrics_'+str(experiment+1)+'.csv',index=False)
-    dataPoints.to_csv('Results/'+name+'_ps_locations.csv',index=False)
+    dataPoints.to_csv('Results/'+name+'_data_points.csv',index=False)
     print(str(found)+" updated")
     return dataPoints
     
@@ -156,16 +156,16 @@ def running():
     map_array, map_options = read_pgm(world_dict[name][1])
     #create_dataPoints(name,map_array,map_options)
 
-    data = pd.read_csv('Results/'+name+'_ps_locations.csv')
+    data = pd.read_csv('Results/'+name+'_data_points.csv')
     
     data = update_picked(data, name, experiment)
     #for index, row in data.sample(100).iterrows():
-    for index, row in data.head(10).iterrows():
-        for j in range(10):
-            real,goal,fake=row['real_location'],row['goal_location'],row['ps_location_'+str(j)][1:-1]
+    for index, row in data.sample(100).iterrows():
+            real,goal,fake=row['real'],row['goal'],row['fake']
             print((real,goal,fake))
-            print("running the running number: "+str(index*10+j+1))
-            if 'picked_'+str(j) in data.columns and row['picked_'+str(j)]: continue
+            print("running the running number: "+str(index))
+            if 'picked' in data.columns and row['picked']: continue
+
             p = subprocess.Popen(['python', 'running_results.py',str(experiment),name,\
                 world_dict[name][0],world_dict[name][1],str(real),str(fake),str(goal)])
             p.wait()
@@ -173,6 +173,6 @@ def running():
             print("killing core if there")
             killcore = subprocess.Popen(['killall', '-9' ,'rosmaster'])
             time.sleep(4)
-            data.loc[index,'picked_'+str(j)]=True
-            data.to_csv('Results/'+name+'_ps_locations.csv',index=False)
+            data.loc[index,'picked']=True
+            data.to_csv('Results/'+name+'_data_points.csv',index=False)
 running()

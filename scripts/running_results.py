@@ -163,7 +163,7 @@ def from_path_str_to_position_list(text):
         try_text[i] = (float(try_text[i].split('x:')[1].split('y:')[0]), float(try_text[i].split('y:')[1].split('z:')[0]))
     return try_text
 
-def running_expirement(expirement=None,start=None,fake=None,end=None,world_name=None, world_path=None, map_path=None,map_options=None):
+def running_expirement(expirement=None,start=None,fake=None,end=None,world_name=None, world_path=None, map_path=None,map_options=None,dead_rekoing=False):
 
     row={}
     ending_string="without_oracle" if expirement == 1 else "oracle"
@@ -171,7 +171,7 @@ def running_expirement(expirement=None,start=None,fake=None,end=None,world_name=
 
     core = subprocess.Popen(['roscore'])
     print("starting Core")
-    time.sleep(20)
+    time.sleep(10)
 
     rospy.init_node('move_base_sequence')
             
@@ -226,9 +226,17 @@ def running_expirement(expirement=None,start=None,fake=None,end=None,world_name=
         row['metric-1'] = metric1[0]
         row['metric-2'] = metric2[0]
         row['metric-3'] = metric3
-        row['metric-4_percent'] = metric4[0]
-        row['metric-4_mean'] = metric4[1]
-        row['metric-4_overall_plans'] = metric4[2]
+        row['dead_reakoing_percent'] = metric4[0]
+        row['dead_reakoing_mean_step'] = metric4[1]
+        row['dead_reakoing_mean_dist'] = metric4[2]
+        if dead_rekoing:
+            launch.shutdown()
+            print("killing Launch")
+            time.sleep(10)
+            core.terminate()
+            print('finished '+ ending_string)
+            time.sleep(15)
+            return row
     
     started_pose = rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
     
@@ -282,7 +290,7 @@ def running_expirement(expirement=None,start=None,fake=None,end=None,world_name=
     time.sleep(15)
     return row
 
-def running_on_map(world_name='turtlebot3_world',world_path=None,map_path=None,experiment=0,real=None,fake=None,goal=None):
+def running_on_map(world_name='turtlebot3_world',world_path=None,map_path=None,experiment=0,real=None,fake=None,goal=None,dead_rekoing=False):
 
     #rospack = rospkg.RosPack()
     #pkg_dir = rospack.get_path('multi_robot_nav')
@@ -309,7 +317,7 @@ def running_on_map(world_name='turtlebot3_world',world_path=None,map_path=None,e
     row['fake_location'] = fake
     row['goal_location'] = goal  
 
-    row_expirement=running_expirement(experiment,real,fake,goal,world_name, world_path, map_path,map_options)
+    row_expirement=running_expirement(experiment,real,fake,goal,world_name, world_path, map_path,map_options,dead_rekoing)
     row.update(row_expirement)
 
     results = results.append(row, ignore_index=True)
@@ -320,7 +328,7 @@ if __name__ == '__main__':
         print()
     else:
         running_on_map(experiment=int(sys.argv[1]),world_name=sys.argv[2],world_path=sys.argv[3],\
-            map_path=sys.argv[4],real=sys.argv[5],fake=sys.argv[6],goal=sys.argv[7])
+            map_path=sys.argv[4],real=sys.argv[5],fake=sys.argv[6],goal=sys.argv[7],dead_rekoing=False)
 # create_test_launch((1.5,3),(2.1,4))
 # uuid=roslaunch.rlutil.get_or_generate_uuid(None, False)
 # roslaunch.configure_logging(uuid)

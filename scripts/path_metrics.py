@@ -36,7 +36,9 @@ class PathMetrics:
         self.get_map()
         self.heat_map = np.zeros_like(self.global_map)
         self.counter_along_path = []
-        self.counter_replan_paths = []
+        self.distance_replan_paths = []
+        self.steps_replan_array = []
+        self.notNeed_to_replan_array=[]
         # self.numpize_response()
 	
     def get_metrics_to_goal(self,goal_location):
@@ -101,7 +103,7 @@ class PathMetrics:
         
         grid_indices = self.reduce_poses_resolution(steps_array,len(self.heat_map[0]),len(self.heat_map))
         if len(grid_indices) > 0:
-            self.counter_replan_paths.append(self.will_do_replan(\
+            self.distance_replan_paths.append(self.will_do_replan(\
             self.plan_by_grid(grid_indices),steps_array,goal))
 
         x_index = grid_indices[:, 0]
@@ -165,8 +167,11 @@ class PathMetrics:
 
         #pub.publish(oc_grid)
 
-        mean = np.mean(self.heat_map)
-        var = np.var(self.heat_map)
+        heat_map_array_nonZero=self.heat_map.flatten()
+        heat_map_array_nonZero=heat_map_array_nonZero[np.nonzero(heat_map_array_nonZero)]
+
+        mean = np.mean(heat_map_array_nonZero) #np.mean(self.heat_map)
+        var = np.var(heat_map_array_nonZero) #np.var(self.heat_map)
         non_zero_count = np.count_nonzero(self.heat_map)
         non_zero_percent = non_zero_count / float(self.heat_map.shape[0]*self.heat_map.shape[1])
 
@@ -212,40 +217,51 @@ class PathMetrics:
         
 
     def will_do_replan(self,fake_grid_plan,step_array,goal):
+        from math import sqrt
         
         radius = 1
         obstacle_threshold = 0.5
         multi_start_results = []
+        steps_till_replan_array = []
+        success_percent=[]
 
         for false_start in self.start_sample:
             previous_point = ((np.array(false_start) - np.array(self.global_origin)) / self.resolution).astype(np.int)
             index_in_array=0
-            for i,point in enumerate(fake_grid_plan):
+            for i, point in enumerate(fake_grid_plan):
                 x, y = (previous_point[0] + point[0], previous_point[1] + point[1])
                 map_in_radius = np.array(self.global_map[x - radius : x + radius, y - radius: y + radius])
-                if np.count_nonzero(map_in_radius > obstacle_threshold)>0:
+                if np.count_nonzero(map_in_radius > obstacle_threshold)>0: #we hit a wall
                     break
                 previous_point = (x,y)
                 index_in_array += 1
-            pose = step_array[index_in_array].pose.position
-            from math import sqrt
+
+            steps_till_replan_array.append(index_in_array)    
+            success_percent.append(len(fake_grid_plan) == index_in_array)
+
+            pose = step_array[index_in_array].pose.position    
             goal_pose=goal.pose.position
+
             distance_goal = sqrt((goal_pose.x - pose.x)**2 + (goal_pose.y - pose.y)**2)
             multi_start_results.append(distance_goal)
 
+        self.steps_replan_array.append(np.mean(steps_till_replan_array))
+        self.notNeed_to_replan_array.append(len([x for x in success_percent if x])/10.0)
+        
         return np.mean(multi_start_results)
 
     def get_how_many_replans(self):
-        non_zeros = np.count_nonzero(np.array(self.counter_replan_paths)>0.5)
-        percent = (float(non_zeros) / float(len(self.counter_replan_paths))) * 100
-        mean = np.mean(self.counter_replan_paths)
+        #non_zeros = np.count_nonzero(np.array(self.counter_replan_paths)>0.5)
+        percent = np.mean(self.notNeed_to_replan_array) #(float(non_zeros) / float(len(self.counter_replan_paths))) * 100
+        mean_steps = np.mean(self.steps_replan_array)
+        mean = np.mean(self.distance_replan_paths)
 
         rospy.loginfo('Result of replans Along fake Paths metric:')
         rospy.loginfo('precent: {}%'.format(percent))
-        rospy.loginfo('mean: {}'.format(mean))
-        rospy.loginfo('length: {}'.format(non_zeros))
+        rospy.loginfo('mean step: {}'.format(mean_steps))
+        rospy.loginfo('mean distance: {}'.format(mean))
 
-        return percent,mean,len(self.counter_replan_paths)
+        return percent,mean_steps,mean
 
 
 if __name__ == '__main__':

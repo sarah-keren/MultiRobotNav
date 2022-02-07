@@ -7,6 +7,7 @@ from path_metrics import *
 import time
 import pandas as pd
 from os.path import exists
+from os import mkdir
 import sys
 import subprocess
 
@@ -24,6 +25,9 @@ from tf.transformations import quaternion_from_euler
 
 
 def read_pgm(address):
+    """
+    read the map for metric
+    """
     address = address.split('.')[0]+'.pgm'
     pgmf = open(address,'rb')
     version=pgmf.readline()
@@ -56,6 +60,9 @@ def read_pgm(address):
     return raster, map_option
 
 def running_single():
+    """
+    running the launch file
+    """
     uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
     roslaunch.configure_logging(uuid)
     
@@ -66,6 +73,9 @@ def running_single():
     return launch
   
 def create_test_launch(real, fake, map_path=None):
+    """
+    create launch for move base and amcl
+    """
     #print((real,fake,map_path))
     if map_path is None:
         #world_path="$(find turtlebot3_gazebo)/worlds/turtlebot3_world.world"
@@ -87,6 +97,9 @@ def create_test_launch(real, fake, map_path=None):
         </launch>")
 
 def set_real_position(position):
+    """
+    set the robot position
+    """
     pub = rospy.Publisher('initialpose', PoseWithCovarianceStamped, queue_size=1)
     static_pose = PoseWithCovariance()
     static_pose.pose.position.x = position[0]
@@ -101,11 +114,17 @@ def set_real_position(position):
     pub.publish(new_pose)
 
 def get_robot_location():
+    """
+    find the robot using odometry it doesnt work good if the floor is not clean or have Embosse
+    """
     odom_msg = rospy.wait_for_message('odom', Odometry)
     position = odom_msg.pose.pose.position
     return position.x,position.y
 
 def goalTargetMaking(goal):
+    """
+    create move base goal class
+    """
     goalTarget = MoveBaseGoal()
     goalTarget.target_pose.header.frame_id = "map"
     goalTarget.target_pose.header.stamp = rospy.Time.now()
@@ -115,13 +134,18 @@ def goalTargetMaking(goal):
     return goalTarget
 
 def get_fake_point(real,base_radius=1):
-    radius = random.random() + base_radius
+    """
+    create fake point with radius
+    """
+    radius = random.random() * base_radius
     theta = (2 * np.pi) * random.random()
     fake_x, fake_y = radius * np.cos(theta) + real[0], radius * np.sin(theta) + real[1]
     return fake_x,fake_y
 
 def running_expirement(expirement=None,start=None,fake=None,end=None, map_path=None,map_options=None):
-
+    """
+    running and expermint and get the results and the metrics
+    """
     row={}
     ending_string="without_oracle" if expirement == 1 else "oracle"
     #print((expirement,start,fake,end,map_path))
@@ -145,11 +169,14 @@ def running_expirement(expirement=None,start=None,fake=None,end=None, map_path=N
     else:
         path_metrics = PathMetrics(ns='/', k=150,real_start=start,\
                             global_origin=map_options['origin'],resolution=map_options['resolution'])
-        metric0, metric1, metric2, metric3 = path_metrics.get_metrics_to_goal(end)
+        metric0, metric1, metric2, metric3, metric4 = path_metrics.get_metrics_to_goal(end)
         row['metric-0'] = metric0
         row['metric-1'] = metric1[0]
         row['metric-2'] = metric2[0]
         row['metric-3'] = metric3
+        row['dead_reakoing_percent'] = metric4[0]
+        row['dead_reakoing_mean_step'] = metric4[1]
+        row['dead_reakoing_mean_dist'] = metric4[2]
         
     print("Waiting to start experiment.")
     time.sleep(10)
@@ -188,13 +215,9 @@ def running_expirement(expirement=None,start=None,fake=None,end=None, map_path=N
     return row
 
 def running_on_map(world_name='turtlebot3_world',map_path=None,experiment=0,real=None,fake=None,goal=None,radius=1):
-
-    #rospack = rospkg.RosPack()
-    #pkg_dir = rospack.get_path('multi_robot_nav')
-    #if map_path is None:
-    #    map_array,map_options = read_pgm(pkg_dir + "/maps/map.pgm")
-    #else:
-    #print((world_name,map_path,experiment,real,fake,goal,radius))
+    """ 
+    create expriment row, running the robot and when it finish save the results to csv.
+    """
     if real is not None: real = tuple([float(x) for x in real.split(',')])
     if fake is not None: fake = tuple([float(x) for x in fake.split(',')])
     else: fake = get_fake_point(real, radius)
@@ -203,7 +226,7 @@ def running_on_map(world_name='turtlebot3_world',map_path=None,experiment=0,real
     map_array,map_options = read_pgm(map_path)
     #print((map_options['width'],map_options['height']))
     #print(np.unique(np.array(map_array)))
-    
+    if not exists("Results/"): mkdir("Results")
     results = pd.read_csv("Results/" + world_name + '_results' + str(experiment + 1) + '.csv')\
          if exists("Results/" + world_name + '_results' + str(experiment + 1) + '.csv')\
          else pd.DataFrame()
@@ -216,7 +239,6 @@ def running_on_map(world_name='turtlebot3_world',map_path=None,experiment=0,real
     row['fake_location'] = fake
     row['goal_location'] = goal  
 
-
     row.update(running_expirement(experiment,real,fake,goal, map_path,map_options))
 
     results = results.append(row, ignore_index=True)
@@ -225,7 +247,7 @@ def running_on_map(world_name='turtlebot3_world',map_path=None,experiment=0,real
 if __name__ == '__main__':
     #print(sys.argv)
     if len(sys.argv)<5:
-        print("need all the data points, give me in that order: experiment(0/1 = orcale/fake location), map_location, real point (without spaces), goal point, and radius of fake (optinal)")
+        print("need all the data points, give me in that order: experiment(0/1 = orcale/fake location), map_location, real point (without spaces for example 4.5,3 ), goal point (like the real point), and radius of fake (optinal)")
     else:
         running_on_map(experiment=int(sys.argv[1]),world_name="real_robot",\
             map_path=sys.argv[2],real=sys.argv[3],goal=sys.argv[4],radius=float(sys.argv[5]))
