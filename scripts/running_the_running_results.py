@@ -89,20 +89,21 @@ def get_points(map_array, map_options):
 
     return (real_x, real_y), (fake_x, fake_y), (goal_x, goal_y)
 
+#relative to this code
 world_dict = {
     #'corridor' : ('$(find chirs-worlds)/worlds/corridor.world','$(find chirs-worlds)/worlds/corridor.world'),
-    'creech': ("/home/user/multiNav_ws/src/chris-worlds/worlds/creech_map.world","/home/user/multiNav_ws/src/chris-worlds/maps/creech_map.world"),
-    'maze': ("/home/user/multiNav_ws/src/chris-worlds/worlds/maze.world", "/home/user/multiNav_ws/src/chris-worlds/maps/chris_maze.yaml"),
-    'office': ("worlds/willowgarage.world", "/home/user/multiNav_ws/src/chris-worlds/maps/Office.yaml"),
-    'lab': ("/home/user/multiNav_ws/src/chris-worlds/maps/lab_complete.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_complete.yaml"),
-    'lab_boxLess': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_boxesLess.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_boxesLess.yaml"),
-    'lab_frontLess': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_frontLess.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_frontLess.yaml"),
-    'lab_sideLess': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_sideLess.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_sideLess.yaml"),
-    'lab_side2Less': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_side2Less.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_side2Less.yaml"),
-    'lab_wallLess': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_wallLess.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_wallLess.yaml"),
-    'lab_partBoxes': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_part_boxes.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_part_boxes.yaml"),
-    'lab_part2Boxes': ("/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_part2_boxes.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/lab_submaps/lab_world_part2_boxes.yaml"),
-    'house': ("/home/user/multiNav_ws/src/multi_robot_nav/worlds/turtlebot3_house.world", "/home/user/multiNav_ws/src/multi_robot_nav/maps/house_map.yaml")}
+    #'creech': ("multi_robot_nav/chris_world/creech_map.world","chris_maps/creech_map.world"),
+    'maze': ("../chris_world/maze.world", "../chris_maps/chris_maze.yaml"),
+    'office': ("worlds/willowgarage.world", "../chris_maps/Office.yaml"),
+    'lab': ("../chris_world/lab_world_complete.world", "../maps/lab_submaps/lab_world_complete.yaml"),
+    'lab_boxLess': ("../maps/lab_submaps/lab_world_boxesLess.world", "../maps/lab_submaps/lab_world_boxesLess.yaml"),
+    'lab_frontLess': ("../maps/lab_submaps/lab_world_frontLess.world", "../maps/lab_submaps/lab_world_frontLess.yaml"),
+    'lab_sideLess': ("../maps/lab_submaps/lab_world_sideLess.world", "../maps/lab_submaps/lab_world_sideLess.yaml"),
+    'lab_side2Less': ("../maps/lab_submaps/lab_world_side2Less.world", "../maps/lab_submaps/lab_world_side2Less.yaml"),
+    'lab_wallLess': ("../maps/lab_submaps/lab_world_wallLess.world", "../maps/lab_submaps/lab_world_wallLess.yaml"),
+    'lab_partBoxes': ("../maps/lab_submaps/lab_world_part_boxes.world", "../maps/lab_submaps/lab_world_part_boxes.yaml"),
+    'lab_part2Boxes': ("../maps/lab_submaps/lab_world_part2_boxes.world", "../maps/lab_submaps/lab_world_part2_boxes.yaml"),
+    'house': ("../worlds/turtlebot3_house.world", "../maps/house_map.yaml")}
 
 def create_dataPoints(name,map_array,map_options):
     if 'lab' in name: return
@@ -139,7 +140,7 @@ def update_picked(dataPoints,name,experiment):
                         dataPoints.loc[index2,'picked'] = True
                         found += 1
     #results.to_csv("Results/" + name + '_newMetrics_'+str(experiment+1)+'.csv',index=False)
-    dataPoints.to_csv('Results/'+name+'_data_points.csv',index=False)
+    dataPoints.to_csv('Results/' + name + '_data_points.csv',index=False)
     print(str(found)+" updated")
     return dataPoints
     
@@ -153,7 +154,7 @@ def running():
     else: name='lab'
     if len(sys.argv)>=3: experiment=int(sys.argv[2])
     else: experiment=1
-    map_array, map_options = read_pgm(world_dict[name][1])
+    #map_array, map_options = read_pgm(os.getcwd()+'/'+world_dict[name][1])
     #create_dataPoints(name,map_array,map_options)
 
     data = pd.read_csv('Results/'+name+'_data_points.csv')
@@ -167,11 +168,12 @@ def running():
             if 'picked' in data.columns and row['picked']: continue
 
             p = subprocess.Popen(['python', 'running_results.py',str(experiment),name,\
-                world_dict[name][0],world_dict[name][1],str(real),str(fake),str(goal)])
+                (os.getcwd()+'/' if name!='office' else '') + world_dict[name][0],\
+                os.getcwd()+'/'+world_dict[name][1],str(real),str(fake),str(goal)])
             p.wait()
             #p.terminate()
             print("killing core if there")
-            killcore = subprocess.Popen(['killall', '-9' ,'rosmaster'])
+            subprocess.Popen(['killall', '-9' ,'rosmaster']) #kill the roscore if exists
             time.sleep(4)
             data.loc[index,'picked']=True
             data.to_csv('Results/'+name+'_data_points.csv',index=False)
