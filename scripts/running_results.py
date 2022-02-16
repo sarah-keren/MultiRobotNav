@@ -29,6 +29,9 @@ from nav_msgs.srv import GetMap, GetPlan
 
 
 def read_pgm(address):
+    """
+    read the pgm and the yaml from the address
+    """
     if '..' in address:
         address = address[0:address.index(
             'scripts')]+address[address.index('..')+3:]
@@ -65,6 +68,9 @@ def read_pgm(address):
 
 
 def running_single():
+    """
+    run the launch file that create the gazebo and rviz and put the robot in stating position
+    """
     uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
     roslaunch.configure_logging(uuid)
 
@@ -77,7 +83,9 @@ def running_single():
 
 
 def create_test_launch(real, fake, world_path=None, map_path=None):
-
+    """
+    create the launch file for running in the given world and given map for rviz. put the robot on real and it think it on fake
+    """
     if world_path is None:
         world_path = "$(find turtlebot3_gazebo)/worlds/turtlebot3_world.world"
         map_path = "$(find multi_robot_nav)/config/map.yaml"
@@ -100,6 +108,9 @@ def create_test_launch(real, fake, world_path=None, map_path=None):
 
 
 def set_real_position(position):
+    """
+    tell the robot it is really on location position
+    """
     pub = rospy.Publisher(
         'initialpose', PoseWithCovarianceStamped, queue_size=1)
     static_pose = PoseWithCovariance()
@@ -116,6 +127,7 @@ def set_real_position(position):
 
 
 def get_robot_location():
+
     odom_msg = rospy.wait_for_message('odom', Odometry)
     position = odom_msg.pose.pose.position
     return position.x, position.y

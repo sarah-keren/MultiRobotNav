@@ -15,6 +15,9 @@ from nav_msgs.srv import GetMap, GetPlan, GetPlanResponse
 class PathMetrics:
     
     def __init__(self, ns='/', k=100,real_start=None,global_origin=None,resolution=None):
+        """
+        initilize metric settings
+        """
         self.ns = ns
         self.k = k
         self.global_origin = global_origin
@@ -42,6 +45,9 @@ class PathMetrics:
         # self.numpize_response()
 	
     def get_metrics_to_goal(self,goal_location):
+        """
+        return all 4 metric results.
+        """
         goal = PoseStamped()
         goal.header.seq = 0
         goal.header.frame_id = self.ns + 'map'
@@ -85,7 +91,9 @@ class PathMetrics:
         return result0, result1, result2, result3, result4
 	
     def single_plan_analysis(self, start, goal, show=False):
-
+        """
+        create all testing for a single path path
+        """
         get_plan_srv = self.ns + 'move_base/make_plan'
         get_plan = rospy.ServiceProxy(get_plan_srv, GetPlan)
         req = GetPlan()
@@ -116,6 +124,9 @@ class PathMetrics:
         return size_metric
 
     def plan_by_grid(self,grid_indices):
+        """
+        get the plan corrisponding to the grid path.
+        """
         previous_location = grid_indices[0]
         plan_grid=[]
         
@@ -127,6 +138,9 @@ class PathMetrics:
         return plan_grid
 
     def get_size_variance_metric(self, size_array):
+        """
+        final cacluation of metric 1 variation of size
+        """
         var=np.var(size_array)
         mean=np.mean(size_array)
 
@@ -136,6 +150,9 @@ class PathMetrics:
         return var,mean
     
     def reduce_poses_resolution(self, steps_array,width,height):
+        """
+        take a path and reduce it to grid
+        """
         xy_array = np.empty((len(steps_array), 2))
         index_to_get=[]
         for i, pose in enumerate(steps_array):
@@ -156,6 +173,9 @@ class PathMetrics:
         return grid_indices
         
     def get_heatmap_analysis(self):
+        """
+        final calcuation of metric 2, calc heatmap variation not counting 0
+        """
         #pub = rospy.Publisher(self.ns + 'heatmap', OccupancyGrid, queue_size=1)
         
         #oc_grid = OccupancyGrid()
@@ -182,6 +202,9 @@ class PathMetrics:
         return var, mean, non_zero_count, non_zero_percent
     
     def get_map(self):
+        """
+        getting the map data and it's settings
+        """
         self.local_map = rospy.wait_for_message(self.ns + 'move_base/local_costmap/costmap', OccupancyGrid)
         
         rospy.wait_for_service(self.ns + 'static_map')
@@ -195,6 +218,9 @@ class PathMetrics:
         self.global_meta_data = static_map.info
     
     def get_localization_along_path(self, grid_indices):
+        """
+        single calcuation of metric 3, looks on the grid path and check on radius couting walls
+        """
         counter = 0
 
         steps = 10
@@ -209,6 +235,9 @@ class PathMetrics:
         return counter
     
     def get_localization_along_path_analysis(self):
+        """
+        final cacluation of metric 3
+        """
         mean = np.mean(self.counter_along_path)
 
         rospy.loginfo('Result of Localization Along Path metric:')
@@ -217,6 +246,9 @@ class PathMetrics:
         
 
     def will_do_replan(self,fake_grid_plan,step_array,goal):
+        """
+        calcuation per single path how many replans
+        """        
         from math import sqrt
         
         radius = 1
@@ -251,6 +283,9 @@ class PathMetrics:
         return np.mean(multi_start_results)
 
     def get_how_many_replans(self):
+        """
+        final calculation of how many on average it will do replans
+        """
         #non_zeros = np.count_nonzero(np.array(self.counter_replan_paths)>0.5)
         percent = np.mean(self.notNeed_to_replan_array) #(float(non_zeros) / float(len(self.counter_replan_paths))) * 100
         mean_steps = np.mean(self.steps_replan_array)
@@ -272,9 +307,3 @@ if __name__ == '__main__':
     res = float(sys.argv[3])
     path_metrics = PathMetrics(real_start=real,global_origin=global_origin,resolution=res,k=100)
     path_metrics.get_metrics_to_goal((1,2))
-    #path_metrics = PathMetrics(ns='/tb3_0/', k=100)
-
-    #path_metrics.get_metrics_to_goal((1,2))
-    #print("second robot")
-    #path_metrics = PathMetrics(ns='/tb3_1/', k=100)
-    #path_metrics.get_metrics_to_goal((1,2))
