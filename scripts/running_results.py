@@ -335,8 +335,9 @@ def running_on_map(world_name='turtlebot3_world', world_path=None, map_path=None
 
     map_array, map_options = read_pgm(map_path)
 
-    results = pd.read_csv("Results/" + world_name + '_newMetrics_' + str(experiment + 1) + '.csv')\
-        if exists("Results/" + world_name + '_newMetrics_' + str(experiment + 1) + '.csv')\
+    save_name = 'dead_reckoning'
+    results = pd.read_csv("Results/" + world_name + '_'+save_name+'_' + str(experiment + 1) + '.csv')\
+        if exists("Results/" + world_name +'_'+save_name+'_' + str(experiment + 1) + '.csv')\
         else pd.DataFrame()
 
     row = {}
@@ -351,7 +352,7 @@ def running_on_map(world_name='turtlebot3_world', world_path=None, map_path=None
     row.update(row_expirement)
 
     results = results.append(row, ignore_index=True)
-    results.to_csv("Results/" + world_name + '_newMetrics_' +
+    results.to_csv("Results/" + world_name +'_'+save_name+'_' +
                    str(experiment + 1) + '.csv', index=False)
 
 
@@ -360,4 +361,4 @@ if __name__ == '__main__':
         print()
     else:
         running_on_map(experiment=int(sys.argv[1]), world_name=sys.argv[2], world_path=sys.argv[3],
-                       map_path=sys.argv[4], real=sys.argv[5], fake=sys.argv[6], goal=sys.argv[7], dead_rekoing=False)
+                       map_path=sys.argv[4], real=sys.argv[5], fake=sys.argv[6], goal=sys.argv[7], dead_rekoing=True)

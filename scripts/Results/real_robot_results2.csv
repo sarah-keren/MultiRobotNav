@@ -1,2 +1,0 @@
-calculation_time_without_oracle,execute_time_without_oracle,fake_location,final_location_without_oracle,goal_location,how_far_from_goal_without_oracle,metric-0,metric-1,metric-2,metric-3,move_base_status_aborted_without_oracle,move_base_status_finish_without_oracle,real_location
-0.22851991653442383,47.74352812767029,"(-1.3628323457564775, 0.6015355577977677)","(1.5746155538769893, -0.3907718420917116)","(-0.5, -0.5)",2.077488985980038,68.0,8.178888888888888,3.072921205403995,148.93333333333334,False,True,"(0.5, 0.5)"

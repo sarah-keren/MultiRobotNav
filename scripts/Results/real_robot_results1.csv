@@ -1,3 +1,0 @@
-calculation_time_oracle,execute_time_oracle,fake_location,final_location_oracle,goal_location,how_far_from_goal_oracle,move_base_status_aborted_oracle,move_base_status_finish_oracle,real_location
-0.18816208839416504,15.619118928909302,,"(0.4949321964130605, 0.07165642838084392)","(0.5, -0.0)",0.07183541161220426,False,True,"(0.5, 0.0)"
-0.2180008888244629,29.151535987854004,,"(-0.4583637741888891, -0.4881040259746498)","(-0.5, -0.5)",0.04330230360853365,False,True,"(0.5, 0.5)"

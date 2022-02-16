@@ -9,7 +9,7 @@ import sys
 from geometry_msgs.msg import PoseStamped,PoseArray
 from std_msgs.msg import Header
 from rospy.numpy_msg import numpy_msg
-from nav_msgs.msg import OccupancyGrid, MapMetaData
+from nav_msgs.msg import OccupancyGrid, MapMetaData, Odometry
 from nav_msgs.srv import GetMap, GetPlan, GetPlanResponse
 
 class PathMetrics:
@@ -34,7 +34,6 @@ class PathMetrics:
 
         array_pose = [(item.position.x,item.position.y) for item in possible_poses_array]
         self.array_sample = random.sample(array_pose, self.k)
-        self.start_sample = random.sample(array_pose, 10)
 
         self.get_map()
         self.heat_map = np.zeros_like(self.global_map)
@@ -44,82 +43,79 @@ class PathMetrics:
         self.notNeed_to_replan_array=[]
         # self.numpize_response()
 	
-    def get_metrics_to_goal(self,goal_location):
-        """
-        return all 4 metric results.
-        """
-        goal = PoseStamped()
-        goal.header.seq = 0
-        goal.header.frame_id = self.ns + 'map'
-        goal.header.stamp = rospy.Time(0)
-        goal.pose.position.x = goal_location[0] 
-        goal.pose.position.y = goal_location[1]  
-        size_array = np.zeros(self.k)        
-        
-        for i, item in enumerate(self.array_sample):
-            start = PoseStamped()
-            start.header.seq = 0
-            start.header.frame_id = self.ns + 'map'
-            start.header.stamp = rospy.Time(0)
-            start.pose.position.x = item[0]
-            start.pose.position.y = item[1]
-            size_array[i] = self.single_plan_analysis(start,goal)
-        
-        result0 = None
-        if self.real_start is not None:
-            real_start = PoseStamped()
-            real_start.header.seq = 0
-            real_start.header.frame_id = self.ns + 'map'
-            real_start.header.stamp = rospy.Time(0)
-            real_start.pose.position.x = self.real_start[0] 
-            real_start.pose.position.y = self.real_start[1]
+    def get_poseStamp_from_position(self,position):
 
-            get_plan_srv = self.ns + 'move_base/make_plan'
-            get_plan = rospy.ServiceProxy(get_plan_srv, GetPlan)
-            
-            req = GetPlan()
-            req.start = start
-            req.goal = goal
-            req.tolerance = .5
-            resp = get_plan(req.start, req.goal, req.tolerance)
-            result0 = len(resp.plan.poses)
-
-        result1 = self.get_size_variance_metric(size_array)
-        result2 = self.get_heatmap_analysis()
-        result3 = self.get_localization_along_path_analysis()
-        result4 = self.get_how_many_replans()
-        return result0, result1, result2, result3, result4
-	
-    def single_plan_analysis(self, start, goal, show=False):
-        """
-        create all testing for a single path path
-        """
+        ps = PoseStamped()
+        ps.header.seq = 0
+        ps.header.frame_id = self.ns + 'map'
+        ps.header.stamp = rospy.Time(0)
+        ps.pose.position.x = position[0] 
+        ps.pose.position.y = position[1]  
+        return ps
+    
+    def get_plan_move_base(self,start, goal):
+        
         get_plan_srv = self.ns + 'move_base/make_plan'
         get_plan = rospy.ServiceProxy(get_plan_srv, GetPlan)
         req = GetPlan()
         req.start = start
         req.goal = goal
         req.tolerance = .5
-        resp = get_plan(req.start, req.goal, req.tolerance)
+        return get_plan(req.start, req.goal, req.tolerance).plan.poses
 
-        steps_array = resp.plan.poses
+    def get_metrics_to_goal(self,goal_location):
+        """
+        return all 4 metric results.
+        """
+        goal = self.get_poseStamp_from_position(goal_location)
+        
+        odomPose = self.get_poseStamp_from_position(self.get_robot_location_odometry())
+        self.plan_odom_position=self.get_plan_move_base(odomPose,goal)
+        self.grid_plan_odom_position = self.plan_by_grid(self.reduce_poses_resolution(\
+            self.plan_odom_position))
+
+        path_size_array = np.zeros(self.k)        
+        
+        for i, item in enumerate(self.array_sample):
+            start = self.get_poseStamp_from_position(item)
+            path_size_array[i] = self.single_plan_analysis(start,goal)
+        
+       
+        
+        result0 = None
+        if self.real_start is not None:
+            real_start = self.get_poseStamp_from_position(self.real_start)
+
+            resp = self.get_plan_move_base(real_start,goal)
+            result0 = len(resp)
+
+        result1 = self.get_cost_different_analysis(path_size_array)
+        result2 = self.get_plan_different_analysis()
+        result3 = self.get_landmark_along_path_analysis()
+        result4 = self.get_dead_reckoing()
+        return result0, result1, result2, result3, result4
+	
+    def single_plan_analysis(self, start, goal, show=False):
+        """
+        create all testing for a single path path
+        """
+        
+        steps_array = self.get_plan_move_base(start,goal)
 
         if show:
-            rospy.logdebug(resp.plan)
+            rospy.logdebug(steps_array)
         
         size_metric = len(steps_array)
         
         grid_indices = self.reduce_poses_resolution(steps_array,len(self.heat_map[0]),len(self.heat_map))
-        if len(grid_indices) > 0:
-            self.distance_replan_paths.append(self.will_do_replan(\
-            self.plan_by_grid(grid_indices),steps_array,goal))
+        self.distance_replan_paths.append(self.will_do_replan(start,goal))
 
         x_index = grid_indices[:, 0]
         y_index = grid_indices[:, 1]
         
         self.heat_map[y_index, x_index] += 1
 
-        self.counter_along_path.append(self.get_localization_along_path(grid_indices))
+        self.counter_along_path.append(self.get_landmarks_along_path(grid_indices))
 
         return size_metric
 
@@ -137,7 +133,7 @@ class PathMetrics:
 
         return plan_grid
 
-    def get_size_variance_metric(self, size_array):
+    def get_cost_different_analysis(self, size_array):
         """
         final cacluation of metric 1 variation of size
         """
@@ -149,10 +145,13 @@ class PathMetrics:
         rospy.loginfo('Mean: {}'.format(mean))
         return var,mean
     
-    def reduce_poses_resolution(self, steps_array,width,height):
+    def reduce_poses_resolution(self, steps_array,width=None,height=None):
         """
         take a path and reduce it to grid
         """
+        if width is None:
+            width = len(self.heat_map[0])
+            height = len(self.heat_map)
         xy_array = np.empty((len(steps_array), 2))
         index_to_get=[]
         for i, pose in enumerate(steps_array):
@@ -172,7 +171,7 @@ class PathMetrics:
         grid_indices = (grid_poses / self.resolution).astype(np.int)
         return grid_indices
         
-    def get_heatmap_analysis(self):
+    def get_plan_different_analysis(self):
         """
         final calcuation of metric 2, calc heatmap variation not counting 0
         """
@@ -187,8 +186,8 @@ class PathMetrics:
 
         #pub.publish(oc_grid)
 
-        heat_map_array_nonZero=self.heat_map.flatten()
-        heat_map_array_nonZero=heat_map_array_nonZero[np.nonzero(heat_map_array_nonZero)]
+        heat_map_array_nonZero = self.heat_map.flatten()
+        heat_map_array_nonZero = heat_map_array_nonZero[np.nonzero(heat_map_array_nonZero)]
 
         mean = np.mean(heat_map_array_nonZero) #np.mean(self.heat_map)
         var = np.var(heat_map_array_nonZero) #np.var(self.heat_map)
@@ -217,11 +216,19 @@ class PathMetrics:
         #                               static_map.info.origin.position.y])
         self.global_meta_data = static_map.info
     
-    def get_localization_along_path(self, grid_indices):
+    def get_robot_location_odometry(self):
+        """
+        get robot location according to the odometry
+        """
+        odom_msg = rospy.wait_for_message('odom', Odometry)
+        position = odom_msg.pose.pose.position
+        return position.x, position.y
+    
+    def get_landmarks_along_path(self, grid_indices):
         """
         single calcuation of metric 3, looks on the grid path and check on radius couting walls
         """
-        counter = 0
+        counter = []
 
         steps = 10
         radius = 10
@@ -230,22 +237,22 @@ class PathMetrics:
         for i in range(0, len(grid_indices), steps):
             x, y = grid_indices[i]
             map_in_radius = np.array(self.global_map[x - radius : x + radius, y - radius: y + radius])
-            counter += np.count_nonzero(map_in_radius > obstacle_threshold)
+            counter.append(np.count_nonzero(map_in_radius > obstacle_threshold))
         
-        return counter
+        return np.nanmean(counter)
     
-    def get_localization_along_path_analysis(self):
+    def get_landmark_along_path_analysis(self):
         """
         final cacluation of metric 3
         """
-        mean = np.mean(self.counter_along_path)
+        mean = np.nanmean(self.counter_along_path)
 
         rospy.loginfo('Result of Localization Along Path metric:')
         rospy.loginfo('Mean: {}'.format(mean))
         return mean
         
 
-    def will_do_replan(self,fake_grid_plan,step_array,goal):
+    def will_do_replan(self,start_point,goal):
         """
         calcuation per single path how many replans
         """        
@@ -257,32 +264,35 @@ class PathMetrics:
         steps_till_replan_array = []
         success_percent=[]
 
-        for false_start in self.start_sample:
-            previous_point = ((np.array(false_start) - np.array(self.global_origin)) / self.resolution).astype(np.int)
-            index_in_array=0
-            for i, point in enumerate(fake_grid_plan):
-                x, y = (previous_point[0] + point[0], previous_point[1] + point[1])
-                map_in_radius = np.array(self.global_map[x - radius : x + radius, y - radius: y + radius])
-                if np.count_nonzero(map_in_radius > obstacle_threshold)>0: #we hit a wall
-                    break
-                previous_point = (x,y)
-                index_in_array += 1
+        start = (start_point.pose.position.x,start_point.pose.position.y)
+        previous_point = ((np.array(start) - np.array(self.global_origin)) / self.resolution).astype(np.int)
+        index_in_array=0
+        for i, point in enumerate(self.grid_plan_odom_position):
+            x, y = (previous_point[0] + point[0], previous_point[1] + point[1])
+            map_in_radius = np.array(self.global_map[x - radius : x + radius, y - radius: y + radius])
+            if np.count_nonzero(map_in_radius > obstacle_threshold)>0: #we hit a wall
+                break
+            previous_point = (x,y)
+            index_in_array += 1
 
-            steps_till_replan_array.append(index_in_array)    
-            success_percent.append(len(fake_grid_plan) == index_in_array)
+        steps_till_replan_array.append(index_in_array)    
+        success_percent.append(len(self.grid_plan_odom_position) == index_in_array)
 
-            pose = step_array[index_in_array].pose.position    
-            goal_pose=goal.pose.position
+        real_pose_stuck = self.plan_odom_position[index_in_array].pose.position    
+        diff = (self.plan_odom_position[0].pose.position.x - real_pose_stuck.x,self.plan_odom_position[0].pose.position.y - real_pose_stuck.y)
+        fake_pose = (start[0]-diff[0], start[1]-diff[1])
 
-            distance_goal = sqrt((goal_pose.x - pose.x)**2 + (goal_pose.y - pose.y)**2)
-            multi_start_results.append(distance_goal)
+        goal_pose = goal.pose.position
+
+        distance_goal = sqrt((goal_pose.x - fake_pose[0])**2 + (goal_pose.y - fake_pose[1])**2)
+        multi_start_results.append(distance_goal)
 
         self.steps_replan_array.append(np.mean(steps_till_replan_array))
         self.notNeed_to_replan_array.append(len([x for x in success_percent if x])/10.0)
         
         return np.mean(multi_start_results)
 
-    def get_how_many_replans(self):
+    def get_dead_reckoing(self):
         """
         final calculation of how many on average it will do replans
         """

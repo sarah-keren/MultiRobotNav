@@ -214,7 +214,7 @@ def running():
         p = subprocess.Popen(['python', 'running_results.py', str(experiment), name,
                               (os.getcwd()+'/' if name != 'office' else '') +
                               world_dict[name][0],
-                              os.getcwd()+'/'+world_dict[name][1]])
+                              os.getcwd()+'/'+world_dict[name][1],real,fake,goal])
         p.wait()
 
         # p.terminate()
