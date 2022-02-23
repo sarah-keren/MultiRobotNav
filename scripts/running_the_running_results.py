@@ -163,11 +163,11 @@ def update_picked(dataPoints, name, experiment):
     update in the database the points we already picked
     """
     # for i in range(10):
+    save_name = 'dead_reckoning'
     dataPoints['picked'] = False
-    if not os.path.exists("Results/" + name + '_newMetrics_'+str(experiment+1)+'.csv'):
+    if not os.path.exists("Results/" + name + '_'+save_name+'_' +str(experiment+1)+'.csv'):
         return dataPoints
-    results = pd.read_csv("Results/" + name +
-                          '_newMetrics_'+str(experiment+1)+'.csv')
+    results = pd.read_csv("Results/" + name + '_'+save_name+'_' +str(experiment+1)+'.csv')
     found = 0
     print(len(results))
     for index, row in results.iterrows():
@@ -205,23 +205,26 @@ def running():
 
     data = update_picked(data, name, experiment)
     # for index, row in data.sample(100).iterrows():
-    for index, row in data.sample(100).iterrows():
+    for index, row in data.iterrows():
+        if index>=20: continue
+        
         real, goal, fake = row['real'], row['goal'], row['fake']
         print((real, goal, fake))
         print("running the running number: "+str(index))
         if 'picked' in data.columns and row['picked']:
             continue
-        p = subprocess.Popen(['python', 'running_results.py', str(experiment), name,
+        for experiment in range(2):
+            p = subprocess.Popen(['python', 'running_dead_reckoing.py', str(experiment), name,
                               (os.getcwd()+'/' if name != 'office' else '') +
                               world_dict[name][0],
                               os.getcwd()+'/'+world_dict[name][1],real,fake,goal])
-        p.wait()
+            p.wait()
 
-        # p.terminate()
-        print("killing core if there")
-        # kill the roscore if exists
-        subprocess.Popen(['killall', '-9', 'rosmaster'])
-        time.sleep(4)
+            # p.terminate()
+            print("killing core if there")
+            # kill the roscore if exists
+            subprocess.Popen(['killall', '-9', 'rosmaster'])
+            time.sleep(4)
         data.loc[index, 'picked'] = True
         data.to_csv('Results/'+name+'_data_points.csv', index=False)
 

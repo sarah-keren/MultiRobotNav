@@ -11,9 +11,6 @@ import os
 import sys
 import subprocess
 
-import threading
-import Queue
-
 import yaml
 from yaml import SafeLoader
 
@@ -21,7 +18,7 @@ from yaml import SafeLoader
 import actionlib
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from actionlib_msgs.msg import GoalStatus
-from geometry_msgs.msg import Pose, Point, Quaternion
+from geometry_msgs.msg import Pose, Point, Quaternion, Twist
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, PoseArray
 from nav_msgs.msg import Odometry, Path
 from tf.transformations import quaternion_from_euler
@@ -186,13 +183,59 @@ def from_path_str_to_position_list(text):
     try_text = text[1:-1]
     try_text = try_text.split("position:")[1:]
     for i in range(len(try_text)):
+        angle_str = try_text[i].split('orientation:')[1]
+        #print(angle_str)
+        angle_str = angle_str.split('z:')[1].split('w:')[0]
+
         try_text[i] = try_text[i].split('orientation:')[0]
         try_text[i] = (float(try_text[i].split('x:')[1].split('y:')[0]), float(
-            try_text[i].split('y:')[1].split('z:')[0]))
+            try_text[i].split('y:')[1].split('z:')[0]), float(angle_str))
     return try_text
 
 
-def running_expirement(expirement=None, start=None, fake=None, end=None, world_name=None, world_path=None, map_path=None, map_options=None, dead_rekoing=False):
+def calc_two_points(point_a, point_b):
+    from math import sqrt, atan2, degrees
+    changeInX = point_b[0] - point_a[0]
+    changeInY = point_b[1] - point_a[1]
+    diff_angle = degrees(atan2(changeInY, changeInX))
+    dist = sqrt(changeInX**2+changeInY**2)
+    speed = 0.02  # CONST for burger m/s
+    time_need = dist / speed
+    angle = diff_angle-point_a[2]
+    return angle,diff_angle, time_need
+
+
+def create_msg(pub, angle_diff, time_need):
+
+    stop = Twist()
+    angle_change = Twist()
+    stright = Twist()
+
+    rate = rospy.Rate(0.2)
+
+    stright.linear.x = 0.1
+
+    angle_change.linear.x = 0
+    angle_change.linear.y = 0
+    angle_change.linear.z = 0
+    angle_change.angular.z = 0.4 * (-1 if angle_diff < 0 else 1)
+    time_per_angle = 0.0485  # extracted from square code
+
+    pub.publish(angle_change)
+    time.sleep(time_per_angle*abs(angle_diff))
+
+    pub.publish(stop)
+
+    pub.publish(stright)
+    time.sleep(time_need)
+    #-----------------------------	Burger	Waffle Pi
+    #Maximum translational velocity	0.22 m/s	0.26 m/s
+    #Maximum rotational velocity	2.84 rad/s (162.72 deg/s)	1.82 rad/s (104.27 deg/s)
+    
+    pub.publish(stop)
+    rate.sleep()
+
+def running_expirement(expirement=None, start=None, fake=None, end=None, world_name=None, world_path=None, map_path=None, map_options=None):
 
     row = {}
     ending_string = "without_oracle" if expirement == 1 else "oracle"
@@ -202,36 +245,21 @@ def running_expirement(expirement=None, start=None, fake=None, end=None, world_n
     core = subprocess.Popen(['roscore'])
     print("starting Core")
     time.sleep(5)
+    #time.sleep(5)
 
-    rospy.init_node('move_base_sequence')
+    # rospy.init_node('move_base_sequence')
 
     print("running launch")
     launch = running_single()
     launch.start()
     time.sleep(5)
+    rospy.init_node('vel_publisher')
 
     print("making goal")
 
-    counter_replan = [None]
-
-    def thread_counting_replan(counter_replan):
-        counter = 0
-        while True:
-            try:
-                rospy.wait_for_message(
-                    '/move_base/DWAPlannerROS/global_plan', Path, 15)
-                print("got replan")
-                counter += .5
-            except:
-                break
-        counter_replan[0] = counter
-        return counter
-
     client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
     client.wait_for_server(rospy.Duration(5))
-    que = Queue.Queue()
-    counting_thread = threading.Thread(target=lambda q, arg1: q.put(
-        thread_counting_replan(arg1)), args=(que, counter_replan))
+    pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
 
     row = {'real_location': start, 'goal_location': end}
 
@@ -250,67 +278,53 @@ def running_expirement(expirement=None, start=None, fake=None, end=None, world_n
         row['dead_reakoing_percent'] = metric4[0]
         row['dead_reakoing_mean_step'] = metric4[1]
         row['dead_reakoing_mean_dist'] = metric4[2]
-        if dead_rekoing:
-            launch.shutdown()
-            print("killing Launch")
-            time.sleep(10)
-            core.terminate()
-            print('finished ' + ending_string)
-            time.sleep(15)
-            return row
 
     started_pose = rospy.wait_for_message(
         'amcl_pose', PoseWithCovarianceStamped)
+    
+    calculation_time=time.time()
+
+    dead_plan = from_path_str_to_position_list(
+        str(get_plan(start if expirement == 0 else fake, end)).replace('\n', ' '))
+    row['started_plan'] = dead_plan
 
     cov_matrix = np.array(started_pose.pose.covariance).reshape(6, 6)
     print(cov_matrix)
     row['init_covariance'] = [cov_matrix[0][0], cov_matrix[0][1],
                               cov_matrix[1][0], cov_matrix[1][1], cov_matrix[5][5]]
-    row['started_plan'] = from_path_str_to_position_list(
-        str(get_plan(start if expirement == 0 else fake, end)).replace('\n', ' '))
+
     print("Waiting to start experiment.")
-    counting_thread.start()
 
     time.sleep(2)
     start_time = time.time()
     print("sending to goal")
-    client.send_goal(goalTargetMaking(end))
-    # for i in range(30):
-    #    print(client.get_state())
-    #    time.sleep(0.5)
-    try:
-        goal_msg = rospy.wait_for_message(
-            'move_base/DWAPlannerROS/global_plan', Path, 20)
-    except:
-        row['calculation_time_' + ending_string] = "timeout"
-
-    calculation_time = time.time()
-    print("waiting to reach")
-    client.wait_for_result(rospy.Duration(600))  # 10 mins
-    status = client.get_state()
+    x=start[0] if expirement==0 else fake[0]
+    y=start[1] if expirement==0 else fake[1]
+    privous_point = (x, y, 0)
+    print('lenght of plan:'+str(len(dead_plan)))
+    row['dead_lenght']=len(dead_plan)
+    for index,point in enumerate(dead_plan):
+        if index>200:break
+        angle,angle_diff, time_neded = calc_two_points(privous_point, point)
+        print(angle, time_neded)
+        create_msg(pub, angle, time_neded)
+        privous_point = (point[0], point[1], angle_diff)
+        
 
     end_time = time.time()
     location = get_robot_location()
 
-    row['move_base_status_finish_' +
-        ending_string] = str(True if status == 3 else False)
-    row['move_base_status_aborted_' +
-        ending_string] = str(True if status == 4 else False)
     row['final_location_' + ending_string] = location
     row['how_far_from_goal_' +
         ending_string] = np.linalg.norm(np.array(location) - np.array(end))
     #row['did_it_really_arrived_' + ending_string] = str(True if np.linalg.norm(np.array(location) - np.array(goal)) < 0.6 else False)
     row['execute_time_' + ending_string] = end_time - calculation_time
-    row['calculation_time_' + ending_string] = calculation_time - start_time
     finish_pose = rospy.wait_for_message(
         'amcl_pose', PoseWithCovarianceStamped)
     cov_matrix = np.array(finish_pose.pose.covariance).reshape(6, 6)
-    print(cov_matrix)
+    print(row['how_far_from_goal_' + ending_string])
     row['finish_covariance' + ending_string] = [cov_matrix[0][0],
                                                 cov_matrix[0][1], cov_matrix[1][0], cov_matrix[1][1], cov_matrix[5][5]]
-    counter_replan = que.get()
-    print(counter_replan)
-    row['number_of_replans'] = counter_replan
 
     launch.shutdown()
     print("killing Launch")
@@ -321,7 +335,7 @@ def running_expirement(expirement=None, start=None, fake=None, end=None, world_n
     return row
 
 
-def running_on_map(world_name='turtlebot3_world', world_path=None, map_path=None, experiment=0, real=None, fake=None, goal=None, dead_rekoing=False):
+def running_on_map(world_name='turtlebot3_world', world_path=None, map_path=None, experiment=0, real=None, fake=None, goal=None):
 
     whereIAm = os.getcwd()
     if not exists(map_path) and exists(whereIAm+'/../'+map_path):
@@ -333,11 +347,11 @@ def running_on_map(world_name='turtlebot3_world', world_path=None, map_path=None
     fake = tuple([float(x) for x in fake[1:-1].split(',')])
     goal = tuple([float(x) for x in goal[1:-1].split(',')])
 
-    map_array, map_options = read_pgm(map_path)
+    _, map_options = read_pgm(map_path)
 
     save_name = 'dead_reckoning'
     results = pd.read_csv("Results/" + world_name + '_'+save_name+'_' + str(experiment + 1) + '.csv')\
-        if exists("Results/" + world_name +'_'+save_name+'_' + str(experiment + 1) + '.csv')\
+        if exists("Results/" + world_name + '_'+save_name+'_' + str(experiment + 1) + '.csv')\
         else pd.DataFrame()
 
     row = {}
@@ -348,11 +362,11 @@ def running_on_map(world_name='turtlebot3_world', world_path=None, map_path=None
     row['goal_location'] = goal
 
     row_expirement = running_expirement(
-        experiment, real, fake, goal, world_name, world_path, map_path, map_options, dead_rekoing)
+        experiment, real, fake, goal, world_name, world_path, map_path, map_options)
     row.update(row_expirement)
 
     results = results.append(row, ignore_index=True)
-    results.to_csv("Results/" + world_name +'_'+save_name+'_' +
+    results.to_csv("Results/" + world_name + '_'+save_name+'_' +
                    str(experiment + 1) + '.csv', index=False)
 
 
@@ -361,4 +375,4 @@ if __name__ == '__main__':
         print()
     else:
         running_on_map(experiment=int(sys.argv[1]), world_name=sys.argv[2], world_path=sys.argv[3],
-                       map_path=sys.argv[4], real=sys.argv[5], fake=sys.argv[6], goal=sys.argv[7], dead_rekoing=True)
+                       map_path=sys.argv[4], real=sys.argv[5], fake=sys.argv[6], goal=sys.argv[7])
